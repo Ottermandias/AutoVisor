@@ -117,6 +117,8 @@ namespace AutoVisor.Managers
                 if( condition != _currentState[ i ] )
                 {
                     _currentState[ i ] = condition;
+                    for ( ; i < NumStateLongs; ++i)
+                        _currentState[ i ] = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();;
                     break;
                 }
 
