@@ -158,7 +158,7 @@ namespace AutoVisor.Managers
                 return;
             if( condition[ ConditionFlag.Diving ] && ApplyVisorChange( VisorChangeStates.Diving ) )
                 return;
-            if( condition[ ConditionFlag.UsingParasol ] && ApplyVisorChange( VisorChangeStates.Parasol ) )
+            if( condition[ ConditionFlag.UsingParasol ] && ApplyVisorChange( VisorChangeStates.Fashion ) )
                 return;
             if( condition[ ConditionFlag.Mounted ] && ApplyVisorChange( VisorChangeStates.Mounted ) )
                 return;

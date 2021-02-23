@@ -224,11 +224,11 @@ namespace AutoVisor.GUI
                 "Precedences are:\n" +
                 "\t1. Fishing\n" +
                 "\t2. Gathering ~ Crafting\n" +
-                "\t3. Flight ~ Diving\n" +
-                "\t4. Mounted ~ Swimming ~ Parasol ~ Stealthed\n" +
+                "\t3. In Flight ~ Diving\n" +
+                "\t4. Mounted ~ Swimming ~ Wearing Fashion Accessories\n" +
                 "\t5. Casting\n" +
-                "\t6. Combat\n" +
-                "\t7. Duty\n" +
+                "\t6. In Combat\n" +
+                "\t7. In Duty\n" +
                 "\t8. Normal." );
         }
 

@@ -10,7 +10,7 @@ namespace AutoVisor.Classes
         Flying    = 1 << 2,
         Swimming  = 1 << 3,
         Diving    = 1 << 4,
-        Parasol   = 1 << 5,
+        Fashion   = 1 << 5,
         Crafting  = 1 << 6,
         Gathering = 1 << 7,
         Fishing   = 1 << 8,
