@@ -21,19 +21,59 @@ namespace AutoVisor.Managers
         public const  byte     ActorFlagsHideWeapon = 0b000010;
         public const  byte     ActorFlagsHideHat    = 0b000001;
         public const  byte     ActorFlagsVisor      = 0b010000;
-        public const  string   VisorCommandEN       = "/visor";
-        public const  string   VisorCommandDE       = "/visier";
-        public const  string   VisorCommandJP       = "/visor";
-        public const  string   VisorCommandFR       = "/visière";
         public static string[] VisorCommands        = InitVisorCommands();
+        public static string[] HideHatCommands      = InitHideHatCommands();
+        public static string[] HideWeaponCommands   = InitHideWeaponCommands();
+        public static string[] OnStrings            = InitOnStrings();
+        public static string[] OffStrings            = InitOffStrings();
 
         private static string[] InitVisorCommands()
         {
             var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = VisorCommandEN;
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = VisorCommandDE;
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = VisorCommandJP;
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = VisorCommandFR;
+            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/visor";
+            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/visier";
+            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/visor";
+            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/visière";
+            return ret;
+        }
+
+        private static string[] InitHideHatCommands()
+        {
+            var ret = new string[4];
+            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/displayhead";
+            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/helm";
+            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/displayhead";
+            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/affichagecouvreche";
+            return ret;
+        }
+
+        private static string[] InitHideWeaponCommands()
+        {
+            var ret = new string[4];
+            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/displayarms";
+            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/waffe";
+            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/displayarms";
+            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/affichagearmes";
+            return ret;
+        }
+
+        private static string[] InitOnStrings()
+        {
+            var ret = new string[4];
+            ret[ ( int )Dalamud.ClientLanguage.English ]  = "on";
+            ret[ ( int )Dalamud.ClientLanguage.German ]   = "ein";
+            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "on";
+            ret[ ( int )Dalamud.ClientLanguage.French ]   = "activé";
+            return ret;
+        }
+
+        private static string[] InitOffStrings()
+        {
+            var ret = new string[4];
+            ret[ ( int )Dalamud.ClientLanguage.English ]  = "off";
+            ret[ ( int )Dalamud.ClientLanguage.German ]   = "aus";
+            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "off";
+            ret[ ( int )Dalamud.ClientLanguage.French ]   = "désactivé";
             return ret;
         }
 
@@ -48,14 +88,14 @@ namespace AutoVisor.Managers
         private const    int     NumStateLongs = 12;
         private readonly ulong[] _currentState = new ulong[NumStateLongs];
 
-        private IntPtr _conditionPtr;
-        private ushort _currentHatModelId;
-        private bool   _enabled;
-        private Job    _currentJob;
-        private Race   _currentRace;
-        private bool   _hatIsShown;
-        private bool   _hatIsUseable;
-        private bool   _visorIsEnabled;
+        private readonly IntPtr _conditionPtr;
+        private          ushort _currentHatModelId;
+        private          Job    _currentJob;
+        private          Race   _currentRace;
+        private          bool   _hatIsShown;
+        private          bool   _hatIsUseable;
+        private          bool   _visorIsEnabled;
+        private          bool   _visorEnabled;
 
         private bool _visorIsToggled;
         // private bool   _visorIsAnimated;
@@ -117,8 +157,9 @@ namespace AutoVisor.Managers
                 if( condition != _currentState[ i ] )
                 {
                     _currentState[ i ] = condition;
-                    for ( ; i < NumStateLongs; ++i)
-                        _currentState[ i ] = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();;
+                    for( ; i < NumStateLongs; ++i )
+                        _currentState[ i ] = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
+                    ;
                     break;
                 }
 
@@ -127,56 +168,103 @@ namespace AutoVisor.Managers
             }
 
             var player = Player();
-            if( !_enabled || !_config.States.TryGetValue( player.Name, out var config )
-                || !config.Enabled || !UpdateActor( player ) )
+            if( !_visorEnabled || !_config.States.TryGetValue( player.Name, out var config ) || !config.Enabled )
                 return;
 
+            UpdateActor( player );
             UpdateJob( player );
             if( !config.PerJob.TryGetValue( _currentJob, out var flags ) )
                 flags = config.PerJob[ Job.Default ];
 
-            HandleState( flags.Set, flags.State, _pi.ClientState.Condition );
+            HandleState( flags, _pi.ClientState.Condition );
         }
 
-        private void HandleState( VisorChangeStates set, VisorChangeStates state, Condition condition )
+        private static readonly (ConditionFlag, VisorChangeStates)[] Conditions = new (ConditionFlag, VisorChangeStates)[]
         {
-            bool ApplyVisorChange( VisorChangeStates flag )
+            ( ConditionFlag.Fishing, VisorChangeStates.Fishing ),
+            ( ConditionFlag.Gathering, VisorChangeStates.Gathering ),
+            ( ConditionFlag.Crafting, VisorChangeStates.Crafting ),
+            ( ConditionFlag.InFlight, VisorChangeStates.Flying ),
+            ( ConditionFlag.Diving, VisorChangeStates.Diving ),
+            ( ConditionFlag.UsingParasol, VisorChangeStates.Fashion ),
+            ( ConditionFlag.Mounted, VisorChangeStates.Mounted ),
+            ( ConditionFlag.Swimming, VisorChangeStates.Swimming ),
+            ( ConditionFlag.Casting, VisorChangeStates.Casting ),
+            ( ConditionFlag.InCombat, VisorChangeStates.Combat ),
+            ( ConditionFlag.BoundByDuty, VisorChangeStates.Duty ),
+            ( ConditionFlag.NormalConditions, VisorChangeStates.Normal )
+        };
+
+        private void HandleState( VisorChangeGroup visor, Condition condition )
+        {
+            var hatSet    = !_hatIsUseable || visor.HideHatSet == 0;
+            var visorSet  = hatSet && _visorEnabled && visor.VisorSet == 0;
+            var weaponSet = visor.HideWeaponSet == 0;
+
+            bool ApplyHatChange( VisorChangeStates flag )
             {
-                if( !set.HasFlag( flag ) )
+                if( !visor.HideHatSet.HasFlag( flag ) )
                     return false;
-                ToggleVisor( state.HasFlag( flag ) );
+                ToggleHat( visor.HideHatState.HasFlag( flag ) );
                 return true;
             }
 
-            if( condition[ ConditionFlag.Fishing ] && ApplyVisorChange( VisorChangeStates.Fishing ) )
-                return;
-            if( condition[ ConditionFlag.Gathering ] && ApplyVisorChange( VisorChangeStates.Gathering ) )
-                return;
-            if( condition[ ConditionFlag.Crafting ] && ApplyVisorChange( VisorChangeStates.Crafting ) )
-                return;
-            if( condition[ ConditionFlag.InFlight ] && ApplyVisorChange( VisorChangeStates.Flying ) )
-                return;
-            if( condition[ ConditionFlag.Diving ] && ApplyVisorChange( VisorChangeStates.Diving ) )
-                return;
-            if( condition[ ConditionFlag.UsingParasol ] && ApplyVisorChange( VisorChangeStates.Fashion ) )
-                return;
-            if( condition[ ConditionFlag.Mounted ] && ApplyVisorChange( VisorChangeStates.Mounted ) )
-                return;
-            if( condition[ ConditionFlag.Swimming ] && ApplyVisorChange( VisorChangeStates.Swimming ) )
-                return;
-            if( condition[ ConditionFlag.Casting ] && ApplyVisorChange( VisorChangeStates.Casting ) )
-                return;
-            if( condition[ ConditionFlag.InCombat ] && ApplyVisorChange( VisorChangeStates.Combat ) )
-                return;
-            if( condition[ ConditionFlag.BoundByDuty ] && ApplyVisorChange( VisorChangeStates.Duty ) )
-                return;
-            if( condition[ ConditionFlag.NormalConditions ] && ApplyVisorChange( VisorChangeStates.Normal ) )
-                return;
+            bool ApplyVisorChange( VisorChangeStates flag )
+            {
+                if( !visor.VisorSet.HasFlag( flag ) )
+                    return false;
+                ToggleVisor( visor.VisorState.HasFlag( flag ) );
+                return true;
+            }
+
+            bool ApplyWeaponChange( VisorChangeStates flag )
+            {
+                if( !visor.HideWeaponSet.HasFlag( flag ) )
+                    return false;
+                ToggleWeapon( visor.HideWeaponState.HasFlag( flag ) );
+                return true;
+            }
+
+            foreach( var (flag, state) in Conditions )
+            {
+                if( visorSet && hatSet && weaponSet )
+                    return;
+
+                if( condition[ flag ] )
+                {
+                    hatSet    = hatSet || ApplyHatChange( state );
+                    visorSet  = visorSet || ApplyVisorChange( state );
+                    weaponSet = weaponSet || ApplyWeaponChange( state );
+                }
+            }
+        }
+
+        private void ToggleWeapon( bool on )
+        {
+            var lang = ( int )_pi.ClientState.ClientLanguage;
+            _commandManager.Execute( $"{HideWeaponCommands[ lang ]} {(on ? OnStrings[ lang ] : OffStrings[ lang ])}" );
+        }
+
+        private void ToggleHat( bool on )
+        {
+            var lang = ( int )_pi.ClientState.ClientLanguage;
+            if( on )
+            {
+                _commandManager.Execute( $"{HideHatCommands[ lang ]} {OnStrings[ lang ]}" );
+                _hatIsShown   = true;
+                _visorEnabled = _visorIsEnabled;
+            }
+            else
+            {
+                _commandManager.Execute( $"{HideHatCommands[ lang ]} {OffStrings[ lang ]}" );
+                _hatIsShown   = false;
+                _visorEnabled = false;
+            }
         }
 
         private void ToggleVisor( bool on )
         {
-            if( on == _visorIsToggled )
+            if( !_visorEnabled || on == _visorIsToggled )
                 return;
             _commandManager.Execute( VisorCommands[ ( int )_pi.ClientState.ClientLanguage ] );
         }
@@ -184,18 +272,18 @@ namespace AutoVisor.Managers
         private Actor Player()
         {
             var player = _pi.ClientState.LocalPlayer;
-            _enabled = player != null;
+            _visorEnabled = player != null;
             return player;
         }
 
         private bool UpdateActor( Actor player )
         {
-            _enabled &= UpdateFlags( player );
-            if( !_enabled )
+            _visorEnabled &= UpdateFlags( player );
+            if( !_visorEnabled )
                 return false;
 
-            _enabled &= UpdateHat( player );
-            return _enabled;
+            _visorEnabled &= UpdateHat( player );
+            return _visorEnabled;
         }
 
         private bool UpdateJob( Actor actor )
@@ -247,7 +335,8 @@ namespace AutoVisor.Managers
                 return UpdateUsable();
             }
 
-            if( UpdateRace( actor ) ) return UpdateUsable();
+            if( UpdateRace( actor ) )
+                return UpdateUsable();
 
             return _visorIsEnabled && _hatIsUseable;
         }

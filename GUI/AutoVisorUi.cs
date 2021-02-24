@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using AutoVisor.Classes;
 using Dalamud.Plugin;
 using ImGuiNET;
@@ -69,7 +67,7 @@ namespace AutoVisor.GUI
         private void Save()
         {
             _pi.SavePluginConfig( _config );
-            _plugin.ResetVisorState();
+            _plugin.VisorManager.ResetState();
         }
 
         private void DrawEnabledCheckbox()
@@ -78,6 +76,10 @@ namespace AutoVisor.GUI
             if( ImGui.Checkbox( LabelEnabled, ref tmp ) && _config.Enabled != tmp )
             {
                 _config.Enabled = tmp;
+                if( tmp )
+                    _plugin.VisorManager.Activate();
+                else
+                    _plugin.VisorManager.Deactivate();
                 Save();
             }
         }
@@ -93,46 +95,38 @@ namespace AutoVisor.GUI
             }
         }
 
-        private void DrawAddJobLine( PlayerConfig settings )
-        {
-            var availableJobsAndIndices = JobNames.Select( ( j, i ) => ( j, i ) ).Where( p => !settings.PerJob.ContainsKey( Jobs[ p.i ] ) );
-            var (jobs, indices) = ( availableJobsAndIndices.Select( j => j.j ).ToArray(),
-                availableJobsAndIndices.Select( j => j.i ).ToArray() );
-            if( jobs.Length == 0 )
-                return;
-            var which = 0;
-
-            ImGui.PushStyleVar( ImGuiStyleVar.FramePadding, Vector2.Zero );
-            if( ImGui.Combo( $"##AddJob_{_currentPlayer}", ref which, jobs, jobs.Length ) )
-            {
-                settings.PerJob.Add( Jobs[ indices[ which ] ], ( 0, 0 ) );
-                Save();
-            }
-
-            ImGui.PopStyleVar();
-
-            ImGui.NextColumn();
-            foreach( var v in VisorStates )
-                ImGui.NextColumn();
-        }
-
-        private void DrawSettingsLine( PlayerConfig settings )
+        private void DrawSettingsLine( PlayerConfig settings, int which )
         {
             var jobSettings = settings.PerJob.ElementAt( _currentJob );
             var job         = jobSettings.Key;
             var name        = JobNames[ ( int )jobSettings.Key ];
-            var set         = jobSettings.Value.Set;
-            var state       = jobSettings.Value.State;
+            var group       = jobSettings.Value;
+            var set         = which == 0 ? group.VisorSet : which == 1   ? group.HideHatSet : group.HideWeaponSet;
+            var state       = which == 0 ? group.VisorState : which == 1 ? group.HideHatState : group.HideWeaponState;
+            var tooltip1 = which switch
+            {
+                0 => "Enable visor toggle on this state.",
+                1 => "Enable headslot toggle on this state.",
+                _ => "Enable weapon toggle on this state."
+            };
+            var tooltip2 = which switch
+            {
+                0 => "Visor off/on.",
+                1 => "Headslot off/on.",
+                _ => "Weapon off/on."
+            };
 
             ImGui.Separator();
             if( job != Job.Default )
             {
-                if( ImGui.Button( $"-##0{_currentPlayer}_{_currentJob}", new Vector2( 20, 23 ) ) )
+                if( ImGui.Button( $"-##0{_currentPlayer}_{_currentJob}_{which}", new Vector2( 20, 23 ) ) )
                 {
                     settings.PerJob.Remove( settings.PerJob.ElementAt( _currentJob ).Key );
                     _currentJob = Math.Max( 0, _currentJob - 1 );
                     Save();
                 }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip( $"Delete the job specific settings for {name}." );
 
                 ImGui.SameLine();
             }
@@ -142,15 +136,15 @@ namespace AutoVisor.GUI
             foreach( var v in VisorStates )
             {
                 var tmp1 = set.HasFlag( v );
-                ImGui.Checkbox( $"##0_{_currentPlayer}_{_currentJob}_{v}", ref tmp1 );
+                ImGui.Checkbox( $"##0{which}_{_currentPlayer}_{_currentJob}_{v}", ref tmp1 );
                 if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( "Enable visor change on this state." );
+                    ImGui.SetTooltip( tooltip1 );
                 if( !tmp1 )
                     ImGui.PushStyleVar( ImGuiStyleVar.Alpha, 0.35f );
 
                 var tmp2 = tmp1 && state.HasFlag( v );
                 ImGui.SameLine();
-                ImGui.Checkbox( $"##1_{_currentPlayer}_{_currentJob}_{v}", ref tmp2 );
+                ImGui.Checkbox( $"##1{which}_{_currentPlayer}_{_currentJob}_{v}", ref tmp2 );
                 if( !tmp1 )
                 {
                     tmp2 = false;
@@ -158,19 +152,55 @@ namespace AutoVisor.GUI
                 }
 
                 if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( "Visor off/on." );
+                    ImGui.SetTooltip( tooltip2 );
 
 
                 if( tmp1 != set.HasFlag( v ) || tmp2 != state.HasFlag( v ) )
                 {
-                    var newSet   = tmp1 ? set | v : set & ~v;
-                    var newState = tmp2 ? state | v : state & ~v;
-                    settings.PerJob[ job ] = ( newSet, newState );
+                    switch( which )
+                    {
+                    case 0:
+                        group.VisorSet   = tmp1 ? set | v : set & ~v;
+                        group.VisorState = tmp2 ? state | v : state & ~v;
+                        break;
+                    case 1:
+                        group.HideHatSet   = tmp1 ? set | v : set & ~v;
+                        group.HideHatState = tmp2 ? state | v : state & ~v;
+                        break;
+                    default:
+                        group.HideWeaponSet   = tmp1 ? set | v : set & ~v;
+                        group.HideWeaponState = tmp2 ? state | v : state & ~v;
+                        break;
+                    }
+
+                    settings.PerJob[ job ] = group;
                     Save();
                 }
 
                 ImGui.NextColumn();
             }
+        }
+
+        private void DrawAddJobSelector( PlayerConfig settings )
+        {
+            if( settings.PerJob.Count == JobNames.Length )
+                return;
+
+            var availableJobsAndIndices = JobNames.Select( ( j, i ) => ( j, i ) ).Where( p => !settings.PerJob.ContainsKey( Jobs[ p.i ] ) );
+
+            if( !ImGui.BeginCombo( $"Add Job##{_currentPlayer}", "", ImGuiComboFlags.NoPreview ) )
+                return;
+
+            foreach( var (job, index) in availableJobsAndIndices )
+            {
+                if( ImGui.Selectable( $"{job}##{_currentPlayer}", false ) )
+                {
+                    settings.PerJob.Add( Jobs[ index ], VisorChangeGroup.Empty );
+                    Save();
+                }
+            }
+
+            ImGui.EndCombo();
         }
 
         private void DrawPlayerGroup()
@@ -199,18 +229,54 @@ namespace AutoVisor.GUI
                 return;
             }
 
+            if( ImGui.IsItemHovered() )
+                ImGui.SetTooltip( $"Delete all settings for the character {name}." );
+
+            if( name != ( _pi.ClientState.LocalPlayer?.Name ?? "" ) )
+            {
+                ImGui.SameLine();
+                if( ImGui.Button( $"Duplicate##{name}" ) )
+                    AddPlayer( _config.States[ name ] );
+                if( ImGui.IsItemHovered() )
+                    ImGui.SetTooltip( $"Duplicate the settings for this character to your current character." );
+            }
+
             ImGui.SameLine();
-            if( ImGui.Button( $"Duplicate##{name}" ) )
-                AddPlayer( _config.States[ name ] );
+            DrawAddJobSelector( playerConfig );
 
             ImGui.Dummy( new Vector2( 0, 5 ) );
-            DrawSettingsHeaders();
+            if( ImGui.TreeNode( $"Visor State##{name}" ) )
+            {
+                DrawSettingsHeaders();
 
-            for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
-                DrawSettingsLine( playerConfig );
+                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
+                    DrawSettingsLine( playerConfig, 0 );
 
-            DrawAddJobLine( playerConfig );
-            ImGui.Columns( 1 );
+                ImGui.Columns( 1 );
+                ImGui.TreePop();
+            }
+
+            if( ImGui.TreeNode( $"Headslot State##{name}" ) )
+            {
+                DrawSettingsHeaders();
+
+                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
+                    DrawSettingsLine( playerConfig, 1 );
+
+                ImGui.Columns( 1 );
+                ImGui.TreePop();
+            }
+
+            if( ImGui.TreeNode( $"Weapon State##{name}" ) )
+            {
+                DrawSettingsHeaders();
+
+                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
+                    DrawSettingsLine( playerConfig, 2 );
+
+                ImGui.Columns( 1 );
+                ImGui.TreePop();
+            }
         }
 
         private static void DrawHelp()
@@ -218,9 +284,9 @@ namespace AutoVisor.GUI
             if( !ImGui.CollapsingHeader( "Help", ImGuiTreeNodeFlags.DefaultOpen ) )
                 return;
 
-            ImGui.TextWrapped( "AutoVisor allows you to automatically use /visor on certain conditions. " +
+            ImGui.TextWrapped( "AutoVisor allows you to automatically use /visor, /displayhead or /displayarms on certain conditions. " +
                 "The configuration is character-name and job-specific, with a default job that triggers if no specific job is active. " +
-                "The first checkbox per column activates automatic changing for the specific condition, the second indicates to which state the visor should be changed.\n" +
+                "The first checkbox per column activates automatic changing for the specific condition, the second indicates to which state the setting should be changed.\n" +
                 "Precedences are:\n" +
                 "\t1. Fishing\n" +
                 "\t2. Gathering ~ Crafting\n" +

@@ -18,8 +18,8 @@ namespace AutoVisor
         private DalamudPluginInterface _pluginInterface;
         private AutoVisorConfiguration _configuration;
         private CommandManager         _commandManager;
-        private VisorManager           _visorManager;
         private AutoVisorUi            _ui;
+        public  VisorManager           VisorManager;
 
         public void Initialize( DalamudPluginInterface pluginInterface )
         {
@@ -28,11 +28,11 @@ namespace AutoVisor
                 new CommandManager( pluginInterface, "AutoVisor", Serilog.Events.LogEventLevel.Verbose );
             _configuration = pluginInterface.GetPluginConfig() as AutoVisorConfiguration ??
                 new AutoVisorConfiguration();
-            _visorManager = new VisorManager( _pluginInterface, _configuration, _commandManager );
+            VisorManager = new VisorManager( _pluginInterface, _configuration, _commandManager );
             _ui           = new AutoVisorUi( this, _pluginInterface, _configuration );
 
             if( _configuration.Enabled )
-                _visorManager.Activate();
+                VisorManager.Activate();
 
             _pluginInterface.CommandManager.AddHandler( "/autovisor", new CommandInfo( OnAutoVisor )
             {
@@ -46,14 +46,11 @@ namespace AutoVisor
 
         public void Dispose()
         {
-            _visorManager.Dispose();
+            VisorManager.Dispose();
             _pluginInterface.SavePluginConfig( _configuration );
             _pluginInterface.CommandManager.RemoveHandler( "/autovisor" );
             _pluginInterface.Dispose();
         }
-
-        public void ResetVisorState()
-            => _visorManager.ResetState();
 
         private void OnAutoVisor( string command, string _ )
             => _ui.Visible = !_ui.Visible;
