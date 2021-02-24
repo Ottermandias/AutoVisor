@@ -19,19 +19,18 @@ namespace AutoVisor.Managers
         public const  int      ActorRaceOffset        = 0x1878;
         public const  int      ActorHatOffset         = 0x1040;
         public const  int      ActorFlagsOffset       = 0x106C;
-        public const  int      ActorWeaponDrawnOffset = 0x0CFA;
+        public const  int      ActorWeaponDrawnOffset = 0x1980;
         public const  byte     ActorFlagsHideWeapon   = 0b000010;
         public const  byte     ActorFlagsHideHat      = 0b000001;
         public const  byte     ActorFlagsVisor        = 0b010000;
-        public const  byte     ActorWeaponSheathed    = 0b10;
-        public const  byte     ActorWeaponDrawn       = 0b01;
+        public const  byte     ActorWeaponDrawn       = 0b100;
         public static string[] VisorCommands          = InitVisorCommands();
         public static string[] HideHatCommands        = InitHideHatCommands();
         public static string[] HideWeaponCommands     = InitHideWeaponCommands();
         public static string[] OnStrings              = InitOnStrings();
         public static string[] OffStrings             = InitOffStrings();
 
-        
+
         public static readonly Dictionary< VisorChangeStates, bool > ValidStatesForWeapon = new()
         {
             { VisorChangeStates.Normal, true },
@@ -46,7 +45,7 @@ namespace AutoVisor.Managers
             { VisorChangeStates.Combat, true },
             { VisorChangeStates.Casting, false },
             { VisorChangeStates.Duty, true },
-            { VisorChangeStates.Drawn, false },
+            { VisorChangeStates.Drawn, false }
         };
 
         private static string[] InitVisorCommands()
@@ -111,11 +110,13 @@ namespace AutoVisor.Managers
         private readonly ulong[] _currentState = new ulong[NumStateLongs];
         private          byte    _currentWeaponDrawn;
 
+        private readonly IntPtr _actorTablePtr;
         private readonly IntPtr _conditionPtr;
         private          ushort _currentHatModelId;
         private          Job    _currentJob;
         private          Race   _currentRace;
         private          bool   _hatIsShown;
+        private          bool   _weaponIsShown;
         private          bool   _hatIsUseable;
         private          bool   _visorIsEnabled;
         private          bool   _visorEnabled;
@@ -146,6 +147,8 @@ namespace AutoVisor.Managers
             // Some hacky shit to not resolve the address again.
             _conditionPtr = BaseAddressResolver.DebugScannedValues[ "ClientStateAddressResolver" ]
                 .Find( kvp => kvp.Item1 == "ConditionFlags" ).Item2;
+            _actorTablePtr = BaseAddressResolver.DebugScannedValues[ "ClientStateAddressResolver" ]
+                .Find( kvp => kvp.Item1 == "ActorTable" ).Item2;
         }
 
         public void Dispose()
@@ -172,32 +175,72 @@ namespace AutoVisor.Managers
         public void ResetState()
             => Array.Clear( _currentState, 0, NumStateLongs );
 
+        private static readonly ulong[] RelevantConditionsBitmask = new ulong[NumStateLongs]
+        {
+            0x0001010100000100,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000001010000,
+            0x0000000000010000,
+            0x0000000001000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0100000000000000,
+            0x0000000001010000,
+            0x0001000000000000
+        };
+
+        private static readonly ulong[] WaitStateConditionsBitmask = new ulong[NumStateLongs]
+        {
+            0x0000000000FF00FF,
+            0x0000000000000000,
+            0x0000000000000000,
+            0xFFFF00000000FF00,
+            0x00FF0000FF0000FF,
+            0x0000FF0000000000,
+            0x0000FFFFFF000000,
+            0x000000FF00FF0000,
+            0x00FF00FFFF0000FF,
+            0x00FF000000000000,
+            0x00FF000000000000,
+            0x0000FFFF00000000
+        };
+
         public unsafe void OnFrameworkUpdate( object framework )
         {
             var player = Player();
-            if( player == null )
+            if( player == IntPtr.Zero )
                 return;
-            var weaponDrawn = *( ( byte* )player.Address.ToPointer() + ActorWeaponDrawnOffset );
 
             for( var i = 0; i < NumStateLongs; ++i )
             {
-                var condition = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
+                if( ( WaitStateConditionsBitmask[ i ] & *( ulong* )( _conditionPtr + 8 * i ).ToPointer() ) != 0ul )
+                    return;
+            }
+
+            for( var i = 0; i < NumStateLongs; ++i )
+            {
+                var condition = RelevantConditionsBitmask[ i ] & *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
                 if( condition != _currentState[ i ] )
                 {
                     _currentState[ i ] = condition;
                     for( ; i < NumStateLongs; ++i )
-                        _currentState[ i ] = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
+                        _currentState[ i ] = RelevantConditionsBitmask[ i ] & *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
                     ;
                     break;
                 }
 
-                if( i == NumStateLongs - 1 && weaponDrawn == _currentWeaponDrawn )
-                    return;
+                if( i == NumStateLongs - 1 )
+                {
+                    var weaponDrawn = *( ( byte* )player.ToPointer() + ActorWeaponDrawnOffset );
+                    if( weaponDrawn == _currentWeaponDrawn )
+                        return;
+                    _currentWeaponDrawn = weaponDrawn;
+                }
             }
 
-            _currentWeaponDrawn = weaponDrawn;
-
-            if( !_visorEnabled || !_config.States.TryGetValue( player.Name, out var config ) || !config.Enabled )
+            if( !_visorEnabled || !_config.States.TryGetValue( PlayerName( player ), out var config ) || !config.Enabled )
                 return;
 
             UpdateActor( player );
@@ -249,7 +292,7 @@ namespace AutoVisor.Managers
 
             bool ApplyWeaponChange( VisorChangeStates flag )
             {
-                if( !ValidStatesForWeapon[flag] || !visor.HideWeaponSet.HasFlag( flag ) )
+                if( !ValidStatesForWeapon[ flag ] || !visor.HideWeaponSet.HasFlag( flag ) )
                     return false;
                 ToggleWeapon( visor.HideWeaponState.HasFlag( flag ) );
                 return true;
@@ -262,7 +305,7 @@ namespace AutoVisor.Managers
 
                 var doStuff = state switch
                 {
-                    VisorChangeStates.Drawn => _currentWeaponDrawn == ActorWeaponDrawn,
+                    VisorChangeStates.Drawn => ( _currentWeaponDrawn & ActorWeaponDrawn ) == ActorWeaponDrawn,
                     _                       => condition[ flag ]
                 };
                 if( doStuff )
@@ -276,13 +319,19 @@ namespace AutoVisor.Managers
 
         private void ToggleWeapon( bool on )
         {
+            if( on == _weaponIsShown )
+                return;
             var lang = ( int )_pi.ClientState.ClientLanguage;
             _commandManager.Execute( $"{HideWeaponCommands[ lang ]} {( on ? OnStrings[ lang ] : OffStrings[ lang ] )}" );
+            _weaponIsShown = on;
         }
 
         private void ToggleHat( bool on )
         {
+            if( on == _hatIsShown )
+                return;
             var lang = ( int )_pi.ClientState.ClientLanguage;
+
             if( on )
             {
                 _commandManager.Execute( $"{HideHatCommands[ lang ]} {OnStrings[ lang ]}" );
@@ -302,36 +351,30 @@ namespace AutoVisor.Managers
             if( !_visorEnabled || on == _visorIsToggled )
                 return;
             _commandManager.Execute( VisorCommands[ ( int )_pi.ClientState.ClientLanguage ] );
+            _visorIsToggled = on;
         }
 
-        private Actor Player()
+        private IntPtr Player()
         {
-            var player = _pi.ClientState.LocalPlayer;
-            _visorEnabled = player != null;
+            var player = Marshal.ReadIntPtr( _actorTablePtr );
+            _visorEnabled = player != IntPtr.Zero;
             return player;
         }
 
-        private bool UpdateActor( Actor player )
+        private static string PlayerName( IntPtr player )
+            => Marshal.PtrToStringAnsi( player + 0x30, 30 ).TrimEnd( '\0' );
+
+        private void UpdateActor( IntPtr player )
         {
             _visorEnabled &= UpdateFlags( player );
-            if( !_visorEnabled )
-                return false;
-
             _visorEnabled &= UpdateHat( player );
-            return _visorEnabled;
         }
 
-        private bool UpdateJob( Actor actor )
-        {
-            var job = ( Job )Marshal.ReadByte( actor.Address + ActorJobOffset );
-            var ret = job != _currentJob;
-            _currentJob = job;
-            return ret;
-        }
+        private void UpdateJob( IntPtr actor ) { _currentJob = ( Job )Marshal.ReadByte( actor + ActorJobOffset ); }
 
-        private bool UpdateRace( Actor actor )
+        private bool UpdateRace( IntPtr actor )
         {
-            var race = ( Race )Marshal.ReadByte( actor.Address + ActorRaceOffset );
+            var race = ( Race )Marshal.ReadByte( actor + ActorRaceOffset );
             var ret  = race != _currentRace;
             _currentRace = race;
             return ret;
@@ -357,9 +400,9 @@ namespace AutoVisor.Managers
             return _hatIsUseable;
         }
 
-        private bool UpdateHat( Actor actor )
+        private bool UpdateHat( IntPtr actor )
         {
-            var hat = ( ushort )Marshal.ReadInt16( actor.Address + ActorHatOffset );
+            var hat = ( ushort )Marshal.ReadInt16( actor + ActorHatOffset );
             if( hat != _currentHatModelId )
             {
                 _currentHatModelId = hat;
@@ -376,9 +419,10 @@ namespace AutoVisor.Managers
             return _visorIsEnabled && _hatIsUseable;
         }
 
-        private bool UpdateFlags( Actor actor )
+        private bool UpdateFlags( IntPtr actor )
         {
-            var flags = Marshal.ReadByte( actor.Address + ActorFlagsOffset );
+            var flags = Marshal.ReadByte( actor + ActorFlagsOffset );
+            _weaponIsShown  = ( flags & ActorFlagsHideWeapon ) != ActorFlagsHideWeapon;
             _hatIsShown     = ( flags & ActorFlagsHideHat ) != ActorFlagsHideHat;
             _visorIsToggled = ( flags & ActorFlagsVisor ) == ActorFlagsVisor;
             return _hatIsShown;
