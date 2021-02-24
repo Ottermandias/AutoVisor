@@ -16,6 +16,7 @@ namespace AutoVisor.Classes
         Fishing   = 1 << 8,
         Combat    = 1 << 9,
         Casting   = 1 << 10,
-        Duty      = 1 << 11
+        Duty      = 1 << 11,
+        Drawn     = 1 << 12,
     }
 }

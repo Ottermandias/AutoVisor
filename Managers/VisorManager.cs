@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using AutoVisor.Classes;
@@ -14,18 +15,39 @@ namespace AutoVisor.Managers
         public const string EquipmentParameters = "chara/xls/equipmentparameter/equipmentparameter.eqp";
         public const string GimmickParameters   = "chara/xls/equipmentparameter/gimmickparameter.gmp";
 
-        public const  int      ActorJobOffset       = 0x01E2;
-        public const  int      ActorRaceOffset      = 0x1878;
-        public const  int      ActorHatOffset       = 0x1040;
-        public const  int      ActorFlagsOffset     = 0x106C;
-        public const  byte     ActorFlagsHideWeapon = 0b000010;
-        public const  byte     ActorFlagsHideHat    = 0b000001;
-        public const  byte     ActorFlagsVisor      = 0b010000;
-        public static string[] VisorCommands        = InitVisorCommands();
-        public static string[] HideHatCommands      = InitHideHatCommands();
-        public static string[] HideWeaponCommands   = InitHideWeaponCommands();
-        public static string[] OnStrings            = InitOnStrings();
-        public static string[] OffStrings            = InitOffStrings();
+        public const  int      ActorJobOffset         = 0x01E2;
+        public const  int      ActorRaceOffset        = 0x1878;
+        public const  int      ActorHatOffset         = 0x1040;
+        public const  int      ActorFlagsOffset       = 0x106C;
+        public const  int      ActorWeaponDrawnOffset = 0x0CFA;
+        public const  byte     ActorFlagsHideWeapon   = 0b000010;
+        public const  byte     ActorFlagsHideHat      = 0b000001;
+        public const  byte     ActorFlagsVisor        = 0b010000;
+        public const  byte     ActorWeaponSheathed    = 0b10;
+        public const  byte     ActorWeaponDrawn       = 0b01;
+        public static string[] VisorCommands          = InitVisorCommands();
+        public static string[] HideHatCommands        = InitHideHatCommands();
+        public static string[] HideWeaponCommands     = InitHideWeaponCommands();
+        public static string[] OnStrings              = InitOnStrings();
+        public static string[] OffStrings             = InitOffStrings();
+
+        
+        public static readonly Dictionary< VisorChangeStates, bool > ValidStatesForWeapon = new()
+        {
+            { VisorChangeStates.Normal, true },
+            { VisorChangeStates.Mounted, true },
+            { VisorChangeStates.Flying, true },
+            { VisorChangeStates.Swimming, true },
+            { VisorChangeStates.Diving, true },
+            { VisorChangeStates.Fashion, false },
+            { VisorChangeStates.Crafting, false },
+            { VisorChangeStates.Gathering, false },
+            { VisorChangeStates.Fishing, false },
+            { VisorChangeStates.Combat, true },
+            { VisorChangeStates.Casting, false },
+            { VisorChangeStates.Duty, true },
+            { VisorChangeStates.Drawn, false },
+        };
 
         private static string[] InitVisorCommands()
         {
@@ -87,6 +109,7 @@ namespace AutoVisor.Managers
 
         private const    int     NumStateLongs = 12;
         private readonly ulong[] _currentState = new ulong[NumStateLongs];
+        private          byte    _currentWeaponDrawn;
 
         private readonly IntPtr _conditionPtr;
         private          ushort _currentHatModelId;
@@ -151,6 +174,11 @@ namespace AutoVisor.Managers
 
         public unsafe void OnFrameworkUpdate( object framework )
         {
+            var player = Player();
+            if( player == null )
+                return;
+            var weaponDrawn = *( ( byte* )player.Address.ToPointer() + ActorWeaponDrawnOffset );
+
             for( var i = 0; i < NumStateLongs; ++i )
             {
                 var condition = *( ulong* )( _conditionPtr + 8 * i ).ToPointer();
@@ -163,11 +191,12 @@ namespace AutoVisor.Managers
                     break;
                 }
 
-                if( i == NumStateLongs - 1 )
+                if( i == NumStateLongs - 1 && weaponDrawn == _currentWeaponDrawn )
                     return;
             }
 
-            var player = Player();
+            _currentWeaponDrawn = weaponDrawn;
+
             if( !_visorEnabled || !_config.States.TryGetValue( player.Name, out var config ) || !config.Enabled )
                 return;
 
@@ -191,6 +220,7 @@ namespace AutoVisor.Managers
             ( ConditionFlag.Swimming, VisorChangeStates.Swimming ),
             ( ConditionFlag.Casting, VisorChangeStates.Casting ),
             ( ConditionFlag.InCombat, VisorChangeStates.Combat ),
+            ( ConditionFlag.None, VisorChangeStates.Drawn ),
             ( ConditionFlag.BoundByDuty, VisorChangeStates.Duty ),
             ( ConditionFlag.NormalConditions, VisorChangeStates.Normal )
         };
@@ -219,7 +249,7 @@ namespace AutoVisor.Managers
 
             bool ApplyWeaponChange( VisorChangeStates flag )
             {
-                if( !visor.HideWeaponSet.HasFlag( flag ) )
+                if( !ValidStatesForWeapon[flag] || !visor.HideWeaponSet.HasFlag( flag ) )
                     return false;
                 ToggleWeapon( visor.HideWeaponState.HasFlag( flag ) );
                 return true;
@@ -230,7 +260,12 @@ namespace AutoVisor.Managers
                 if( visorSet && hatSet && weaponSet )
                     return;
 
-                if( condition[ flag ] )
+                var doStuff = state switch
+                {
+                    VisorChangeStates.Drawn => _currentWeaponDrawn == ActorWeaponDrawn,
+                    _                       => condition[ flag ]
+                };
+                if( doStuff )
                 {
                     hatSet    = hatSet || ApplyHatChange( state );
                     visorSet  = visorSet || ApplyVisorChange( state );
@@ -242,7 +277,7 @@ namespace AutoVisor.Managers
         private void ToggleWeapon( bool on )
         {
             var lang = ( int )_pi.ClientState.ClientLanguage;
-            _commandManager.Execute( $"{HideWeaponCommands[ lang ]} {(on ? OnStrings[ lang ] : OffStrings[ lang ])}" );
+            _commandManager.Execute( $"{HideWeaponCommands[ lang ]} {( on ? OnStrings[ lang ] : OffStrings[ lang ] )}" );
         }
 
         private void ToggleHat( bool on )

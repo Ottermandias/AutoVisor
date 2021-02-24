@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using AutoVisor.Classes;
+using AutoVisor.Managers;
 using Dalamud.Plugin;
 using ImGuiNET;
 
@@ -13,8 +14,6 @@ namespace AutoVisor.GUI
         private const string PluginName   = "AutoVisor Configuration";
         private const string LabelEnabled = "Enable AutoVisor";
 
-        private static readonly Vector2  MinSize  = new( 875, 200 );
-        private static readonly Vector2  MaxSize  = new( 875, 50000 );
         private static readonly Job[]    Jobs     = Enum.GetValues( typeof( Job ) ).Cast< Job >().ToArray();
         private static readonly string[] JobNames = Enum.GetNames( typeof( Job ) );
 
@@ -23,6 +22,19 @@ namespace AutoVisor.GUI
 
         private static readonly string[] VisorStateNames = Enum.GetNames( typeof( VisorChangeStates ) );
 
+        private static readonly VisorChangeStates[] VisorStatesWeapon =
+            VisorStates.Where( v => VisorManager.ValidStatesForWeapon[ v ] ).ToArray();
+
+        private static readonly string[] VisorStateWeaponNames =
+            VisorStateNames.Where( ( v, i ) => VisorManager.ValidStatesForWeapon[ VisorStates[ i ] ] ).ToArray();
+
+        private const int FirstColumnWidth  = 65;
+        private const int OtherColumnWidths = 70;
+
+        private static readonly float SizeX =
+            FirstColumnWidth + VisorStates.Length * ( OtherColumnWidths + 2 );
+        private static readonly Vector2 MinSize = new( SizeX, 200 );
+        private static readonly Vector2 MaxSize = new( SizeX, 50000 );
 
         private readonly AutoVisor              _plugin;
         private readonly DalamudPluginInterface _pi;
@@ -32,15 +44,17 @@ namespace AutoVisor.GUI
 
         private readonly List< string > _players;
 
-        private int _currentPlayer = 0;
-        private int _currentJob    = 0;
+        private int  _currentPlayer  = 0;
+        private int  _currentJob     = 0;
+        private bool _setColumnWidth = false;
 
         public AutoVisorUi( AutoVisor plugin, DalamudPluginInterface pi, AutoVisorConfiguration config )
         {
-            _plugin  = plugin;
-            _pi      = pi;
-            _config  = config;
-            _players = _config.States.Select( kvp => kvp.Key ).ToList();
+            _plugin                                       = plugin;
+            _pi                                           = pi;
+            _config                                       = config;
+            _players                                      = _config.States.Select( kvp => kvp.Key ).ToList();
+            VisorStateNames[ VisorStateNames.Length - 1 ] = "W. Drawn";
         }
 
         private bool AddPlayer( PlayerConfig config )
@@ -84,11 +98,19 @@ namespace AutoVisor.GUI
             }
         }
 
-        private void DrawSettingsHeaders()
+        private void DrawSettingsHeaders( int which )
         {
-            ImGui.Columns( VisorStateNames.Length + 1, $"##header_{_currentPlayer}", true );
+            var names  = which == 2 ? VisorStateWeaponNames : VisorStateNames;
+            ImGui.Columns( names.Length + 1, $"##header_{_currentPlayer}", true );
+
+            if( !_setColumnWidth )
+            {
+                ImGui.SetColumnWidth( 0, FirstColumnWidth );
+                for( var i = 1; i <= VisorStateNames.Length; ++i)
+                    ImGui.SetColumnWidth( i, OtherColumnWidths );
+            }
             ImGui.NextColumn();
-            foreach( var name in VisorStateNames )
+            foreach( var name in names )
             {
                 ImGui.Text( name );
                 ImGui.NextColumn();
@@ -117,6 +139,7 @@ namespace AutoVisor.GUI
             };
 
             ImGui.Separator();
+            ImGui.PushStyleVar( ImGuiStyleVar.ItemSpacing, new Vector2(2,0) );
             if( job != Job.Default )
             {
                 if( ImGui.Button( $"-##0{_currentPlayer}_{_currentJob}_{which}", new Vector2( 20, 23 ) ) )
@@ -125,15 +148,17 @@ namespace AutoVisor.GUI
                     _currentJob = Math.Max( 0, _currentJob - 1 );
                     Save();
                 }
-                if (ImGui.IsItemHovered())
+
+                if( ImGui.IsItemHovered() )
                     ImGui.SetTooltip( $"Delete the job specific settings for {name}." );
 
                 ImGui.SameLine();
             }
-
+            
             ImGui.Text( name );
+            ImGui.PopStyleVar();
             ImGui.NextColumn();
-            foreach( var v in VisorStates )
+            foreach( var v in which == 2 ? VisorStatesWeapon : VisorStates )
             {
                 var tmp1 = set.HasFlag( v );
                 ImGui.Checkbox( $"##0{which}_{_currentPlayer}_{_currentJob}_{v}", ref tmp1 );
@@ -247,7 +272,7 @@ namespace AutoVisor.GUI
             ImGui.Dummy( new Vector2( 0, 5 ) );
             if( ImGui.TreeNode( $"Visor State##{name}" ) )
             {
-                DrawSettingsHeaders();
+                DrawSettingsHeaders( 0 );
 
                 for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
                     DrawSettingsLine( playerConfig, 0 );
@@ -258,7 +283,7 @@ namespace AutoVisor.GUI
 
             if( ImGui.TreeNode( $"Headslot State##{name}" ) )
             {
-                DrawSettingsHeaders();
+                DrawSettingsHeaders( 1 );
 
                 for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
                     DrawSettingsLine( playerConfig, 1 );
@@ -269,7 +294,7 @@ namespace AutoVisor.GUI
 
             if( ImGui.TreeNode( $"Weapon State##{name}" ) )
             {
-                DrawSettingsHeaders();
+                DrawSettingsHeaders( 2 );
 
                 for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
                     DrawSettingsLine( playerConfig, 2 );
@@ -294,8 +319,9 @@ namespace AutoVisor.GUI
                 "\t4. Mounted ~ Swimming ~ Wearing Fashion Accessories\n" +
                 "\t5. Casting\n" +
                 "\t6. In Combat\n" +
-                "\t7. In Duty\n" +
-                "\t8. Normal." );
+                "\t7. Weapon Drawn\n" +
+                "\t8. In Duty\n" +
+                "\t9. Normal." );
         }
 
         private void DrawPlayerAdd()
@@ -330,6 +356,8 @@ namespace AutoVisor.GUI
                 DrawPlayerGroup();
                 ImGui.Dummy( new Vector2( 0, 5 ) );
             }
+
+            _setColumnWidth = true;
 
             ImGui.End();
         }
