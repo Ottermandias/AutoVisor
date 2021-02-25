@@ -54,7 +54,10 @@ namespace AutoVisor.GUI
             _pi                                           = pi;
             _config                                       = config;
             _players                                      = _config.States.Select( kvp => kvp.Key ).ToList();
-            VisorStateNames[ VisorStateNames.Length - 1 ] = "W. Drawn";
+            var idx = Array.IndexOf( VisorStateNames, "Drawn" );
+            if( idx < 0 )
+                return;
+            VisorStateNames[ idx ] = "W. Drawn";
         }
 
         private bool AddPlayer( PlayerConfig config )
@@ -100,15 +103,16 @@ namespace AutoVisor.GUI
 
         private void DrawSettingsHeaders( int which )
         {
-            var names  = which == 2 ? VisorStateWeaponNames : VisorStateNames;
+            var names = which == 2 ? VisorStateWeaponNames : VisorStateNames;
             ImGui.Columns( names.Length + 1, $"##header_{_currentPlayer}", true );
 
             if( !_setColumnWidth )
             {
                 ImGui.SetColumnWidth( 0, FirstColumnWidth );
-                for( var i = 1; i <= VisorStateNames.Length; ++i)
+                for( var i = 1; i <= VisorStateNames.Length; ++i )
                     ImGui.SetColumnWidth( i, OtherColumnWidths );
             }
+
             ImGui.NextColumn();
             foreach( var name in names )
             {
@@ -139,7 +143,7 @@ namespace AutoVisor.GUI
             };
 
             ImGui.Separator();
-            ImGui.PushStyleVar( ImGuiStyleVar.ItemSpacing, new Vector2(2,0) );
+            ImGui.PushStyleVar( ImGuiStyleVar.ItemSpacing, new Vector2( 2, 0 ) );
             if( job != Job.Default )
             {
                 if( ImGui.Button( $"-##0{_currentPlayer}_{_currentJob}_{which}", new Vector2( 20, 23 ) ) )
@@ -154,7 +158,7 @@ namespace AutoVisor.GUI
 
                 ImGui.SameLine();
             }
-            
+
             ImGui.Text( name );
             ImGui.PopStyleVar();
             ImGui.NextColumn();

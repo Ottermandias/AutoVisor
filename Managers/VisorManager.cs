@@ -205,7 +205,7 @@ namespace AutoVisor.Managers
             0x00FF00FFFF0000FF,
             0x00FF000000000000,
             0x00FF000000000000,
-            0x0000FFFF00000000
+            0x0000FFFF00FF0000
         };
 
         public unsafe void OnFrameworkUpdate( object framework )
