@@ -115,6 +115,7 @@ namespace AutoVisor.Managers
         private          ushort _currentHatModelId;
         private          Job    _currentJob;
         private          Race   _currentRace;
+        private          string _currentName;
         private          bool   _hatIsShown;
         private          bool   _weaponIsShown;
         private          bool   _hatIsUseable;
@@ -209,15 +210,17 @@ namespace AutoVisor.Managers
 
         public unsafe void OnFrameworkUpdate( object framework )
         {
-            var player = Player();
-            if( player == IntPtr.Zero )
-                return;
-
             for( var i = 0; i < NumStateLongs; ++i )
             {
                 if( ( WaitStateConditionsBitmask[ i ] & *( ulong* )( _conditionPtr + 8 * i ).ToPointer() ) != 0ul )
                     return;
             }
+
+            var player = Player();
+            if( player == IntPtr.Zero )
+                return;
+            UpdateJob( player );
+            UpdateName( player );
 
             for( var i = 0; i < NumStateLongs; ++i )
             {
@@ -240,11 +243,10 @@ namespace AutoVisor.Managers
                 }
             }
 
-            if( !_visorEnabled || !_config.States.TryGetValue( PlayerName( player ), out var config ) || !config.Enabled )
+            if( !_visorEnabled || !_config.States.TryGetValue( _currentName, out var config ) || !config.Enabled )
                 return;
 
             UpdateActor( player );
-            UpdateJob( player );
             if( !config.PerJob.TryGetValue( _currentJob, out var flags ) )
                 flags = config.PerJob[ Job.Default ];
 
@@ -361,8 +363,15 @@ namespace AutoVisor.Managers
             return player;
         }
 
-        private static string PlayerName( IntPtr player )
-            => Marshal.PtrToStringAnsi( player + 0x30, 30 ).TrimEnd( '\0' );
+        private void UpdateName( IntPtr player )
+        {
+            var name = Marshal.PtrToStringAnsi( player + 0x30, 30 ).TrimEnd( '\0' );
+            if( name != _currentName )
+            {
+                ResetState();
+                _currentName = name;
+            }
+        }
 
         private void UpdateActor( IntPtr player )
         {
@@ -370,7 +379,15 @@ namespace AutoVisor.Managers
             _visorEnabled &= UpdateHat( player );
         }
 
-        private void UpdateJob( IntPtr actor ) { _currentJob = ( Job )Marshal.ReadByte( actor + ActorJobOffset ); }
+        private void UpdateJob( IntPtr actor )
+        {
+            var job = ( Job )Marshal.ReadByte( actor + ActorJobOffset );
+            if( job != _currentJob )
+            {
+                ResetState();
+                _currentJob = ( Job )Marshal.ReadByte( actor + ActorJobOffset );
+            }
+        }
 
         private bool UpdateRace( IntPtr actor )
         {
