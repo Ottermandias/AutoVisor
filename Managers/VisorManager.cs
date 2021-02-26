@@ -15,20 +15,20 @@ namespace AutoVisor.Managers
         public const string EquipmentParameters = "chara/xls/equipmentparameter/equipmentparameter.eqp";
         public const string GimmickParameters   = "chara/xls/equipmentparameter/gimmickparameter.gmp";
 
-        public const  int      ActorJobOffset         = 0x01E2;
-        public const  int      ActorRaceOffset        = 0x1878;
-        public const  int      ActorHatOffset         = 0x1040;
-        public const  int      ActorFlagsOffset       = 0x106C;
-        public const  int      ActorWeaponDrawnOffset = 0x1980;
-        public const  byte     ActorFlagsHideWeapon   = 0b000010;
-        public const  byte     ActorFlagsHideHat      = 0b000001;
-        public const  byte     ActorFlagsVisor        = 0b010000;
-        public const  byte     ActorWeaponDrawn       = 0b100;
-        public static string[] VisorCommands          = InitVisorCommands();
-        public static string[] HideHatCommands        = InitHideHatCommands();
-        public static string[] HideWeaponCommands     = InitHideWeaponCommands();
-        public static string[] OnStrings              = InitOnStrings();
-        public static string[] OffStrings             = InitOffStrings();
+        public const  int    ActorJobOffset         = 0x01E2;
+        public const  int    ActorRaceOffset        = 0x1878;
+        public const  int    ActorHatOffset         = 0x1040;
+        public const  int    ActorFlagsOffset       = 0x106C;
+        public const  int    ActorWeaponDrawnOffset = 0x1980;
+        public const  byte   ActorFlagsHideWeapon   = 0b000010;
+        public const  byte   ActorFlagsHideHat      = 0b000001;
+        public const  byte   ActorFlagsVisor        = 0b010000;
+        public const  byte   ActorWeaponDrawn       = 0b100;
+        public static string VisorCommand           = "/visor";
+        public static string HideHatCommand         = "/displayhead";
+        public static string HideWeaponCommand      = "/displayarms";
+        public static string OnString               = "on";
+        public static string OffString              = "off";
 
 
         public static readonly Dictionary< VisorChangeStates, bool > ValidStatesForWeapon = new()
@@ -47,56 +47,6 @@ namespace AutoVisor.Managers
             { VisorChangeStates.Duty, true },
             { VisorChangeStates.Drawn, false }
         };
-
-        private static string[] InitVisorCommands()
-        {
-            var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/visor";
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/visier";
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/visor";
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/visière";
-            return ret;
-        }
-
-        private static string[] InitHideHatCommands()
-        {
-            var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/displayhead";
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/helm";
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/displayhead";
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/affichagecouvreche";
-            return ret;
-        }
-
-        private static string[] InitHideWeaponCommands()
-        {
-            var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = "/displayarms";
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = "/waffe";
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "/displayarms";
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = "/affichagearmes";
-            return ret;
-        }
-
-        private static string[] InitOnStrings()
-        {
-            var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = "on";
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = "ein";
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "on";
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = "activé";
-            return ret;
-        }
-
-        private static string[] InitOffStrings()
-        {
-            var ret = new string[4];
-            ret[ ( int )Dalamud.ClientLanguage.English ]  = "off";
-            ret[ ( int )Dalamud.ClientLanguage.German ]   = "aus";
-            ret[ ( int )Dalamud.ClientLanguage.Japanese ] = "off";
-            ret[ ( int )Dalamud.ClientLanguage.French ]   = "désactivé";
-            return ret;
-        }
 
         public const uint GimmickVisorEnabledFlag  = 0b01;
         public const uint GimmickVisorAnimatedFlag = 0b10;
@@ -324,7 +274,7 @@ namespace AutoVisor.Managers
             if( on == _weaponIsShown )
                 return;
             var lang = ( int )_pi.ClientState.ClientLanguage;
-            _commandManager.Execute( $"{HideWeaponCommands[ lang ]} {( on ? OnStrings[ lang ] : OffStrings[ lang ] )}" );
+            _commandManager.Execute( $"{HideWeaponCommand} {( on ? OnString : OffString)}" );
             _weaponIsShown = on;
         }
 
@@ -336,13 +286,13 @@ namespace AutoVisor.Managers
 
             if( on )
             {
-                _commandManager.Execute( $"{HideHatCommands[ lang ]} {OnStrings[ lang ]}" );
+                _commandManager.Execute( $"{HideHatCommand} {OnString}" );
                 _hatIsShown   = true;
                 _visorEnabled = _visorIsEnabled;
             }
             else
             {
-                _commandManager.Execute( $"{HideHatCommands[ lang ]} {OffStrings[ lang ]}" );
+                _commandManager.Execute( $"{HideHatCommand} {OffString}" );
                 _hatIsShown   = false;
                 _visorEnabled = false;
             }
@@ -352,7 +302,7 @@ namespace AutoVisor.Managers
         {
             if( !_visorEnabled || on == _visorIsToggled )
                 return;
-            _commandManager.Execute( VisorCommands[ ( int )_pi.ClientState.ClientLanguage ] );
+            _commandManager.Execute( VisorCommand );
             _visorIsToggled = on;
         }
 
