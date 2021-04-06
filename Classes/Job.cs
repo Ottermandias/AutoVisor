@@ -40,6 +40,6 @@ namespace AutoVisor.Classes
         RDM     = 35,
         BLU     = 36,
         GNB     = 37,
-        DNC     = 38
+        DNC     = 38,
     }
 }

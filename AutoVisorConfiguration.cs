@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
-using System.Windows.Forms;
 using Dalamud.Configuration;
 using AutoVisor.Classes;
-using Newtonsoft.Json;
 
 namespace AutoVisor
 {
@@ -30,21 +27,22 @@ namespace AutoVisor
 
     public class PlayerConfig
     {
-        public Dictionary< Job, VisorChangeGroup > PerJob { get; internal set; } = new()
+        public Dictionary<Job, VisorChangeGroup> PerJob { get; internal set; } = new()
         {
-            { Job.Default, VisorChangeGroup.Empty }
+            { Job.Default, VisorChangeGroup.Empty },
         };
 
         public bool Enabled { get; set; } = true;
 
-        public PlayerConfig Clone() => ( PlayerConfig )MemberwiseClone();
+        public PlayerConfig Clone()
+            => (PlayerConfig) MemberwiseClone();
     }
 
     [Serializable]
     public class AutoVisorConfiguration : IPluginConfiguration
     {
-        public int Version { get; set; } = 1;
-        public bool Enabled { get; set; } = true;
-        public Dictionary< string, PlayerConfig > States { get; set; } = new();
+        public int                              Version { get; set; } = 1;
+        public bool                             Enabled { get; set; } = true;
+        public Dictionary<string, PlayerConfig> States  { get; set; } = new();
     }
 }

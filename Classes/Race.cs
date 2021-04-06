@@ -10,6 +10,6 @@ namespace AutoVisor.Classes
         Roegadyn,
         AuRa,
         Hrothgar,
-        Viera
+        Viera,
     }
 }

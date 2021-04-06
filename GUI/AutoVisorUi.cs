@@ -14,27 +14,19 @@ namespace AutoVisor.GUI
         private const string PluginName   = "AutoVisor Configuration";
         private const string LabelEnabled = "Enable AutoVisor";
 
-        private static readonly Job[]    Jobs     = Enum.GetValues( typeof( Job ) ).Cast< Job >().ToArray();
-        private static readonly string[] JobNames = Enum.GetNames( typeof( Job ) );
+        private static readonly Job[]    Jobs     = Enum.GetValues(typeof(Job)).Cast<Job>().ToArray();
+        private static readonly string[] JobNames = Enum.GetNames(typeof(Job));
 
         private static readonly VisorChangeStates[] VisorStates =
-            Enum.GetValues( typeof( VisorChangeStates ) ).Cast< VisorChangeStates >().ToArray();
+            Enum.GetValues(typeof(VisorChangeStates)).Cast<VisorChangeStates>().ToArray();
 
-        private static readonly string[] VisorStateNames = Enum.GetNames( typeof( VisorChangeStates ) );
+        private static readonly string[] VisorStateNames = Enum.GetNames(typeof(VisorChangeStates));
 
         private static readonly VisorChangeStates[] VisorStatesWeapon =
-            VisorStates.Where( v => VisorManager.ValidStatesForWeapon[ v ] ).ToArray();
+            VisorStates.Where(v => VisorManager.ValidStatesForWeapon[v]).ToArray();
 
         private static readonly string[] VisorStateWeaponNames =
-            VisorStateNames.Where( ( v, i ) => VisorManager.ValidStatesForWeapon[ VisorStates[ i ] ] ).ToArray();
-
-        private const int FirstColumnWidth  = 65;
-        private const int OtherColumnWidths = 70;
-
-        private static readonly float SizeX =
-            FirstColumnWidth + VisorStates.Length * ( OtherColumnWidths + 2 );
-        private static readonly Vector2 MinSize = new( SizeX, 200 );
-        private static readonly Vector2 MaxSize = new( SizeX, 50000 );
+            VisorStateNames.Where((v, i) => VisorManager.ValidStatesForWeapon[VisorStates[i]]).ToArray();
 
         private readonly AutoVisor              _plugin;
         private readonly DalamudPluginInterface _pi;
@@ -42,191 +34,200 @@ namespace AutoVisor.GUI
 
         public bool Visible;
 
-        private readonly List< string > _players;
+        private readonly List<string> _players;
 
-        private int  _currentPlayer  = 0;
-        private int  _currentJob     = 0;
-        private bool _setColumnWidth = false;
+        private int _currentPlayer = 0;
+        private int _currentJob    = 0;
 
-        public AutoVisorUi( AutoVisor plugin, DalamudPluginInterface pi, AutoVisorConfiguration config )
+        private Vector2 _horizontalSpace = Vector2.Zero;
+
+        public AutoVisorUi(AutoVisor plugin, DalamudPluginInterface pi, AutoVisorConfiguration config)
         {
-            _plugin                                       = plugin;
-            _pi                                           = pi;
-            _config                                       = config;
-            _players                                      = _config.States.Select( kvp => kvp.Key ).ToList();
-            var idx = Array.IndexOf( VisorStateNames, "Drawn" );
-            if( idx < 0 )
+            _plugin  = plugin;
+            _pi      = pi;
+            _config  = config;
+            _players = _config.States.Select(kvp => kvp.Key).ToList();
+            var idx = Array.IndexOf(VisorStateNames, "Drawn");
+            if (idx < 0)
                 return;
-            VisorStateNames[ idx ] = "W. Drawn";
+
+            VisorStateNames[idx] = "W. Drawn";
         }
 
-        private bool AddPlayer( PlayerConfig config )
+        private bool AddPlayer(PlayerConfig config)
         {
             var name = _pi.ClientState.LocalPlayer?.Name ?? "";
-            if( name.Length == 0 || _config.States.ContainsKey( name ) )
+            if (name.Length == 0 || _config.States.ContainsKey(name))
                 return false;
-            _players.Add( name );
-            _config.States[ name ] = config.Clone();
+
+            _players.Add(name);
+            _config.States[name] = config.Clone();
             Save();
             return true;
         }
 
         private bool AddPlayer()
-            => AddPlayer( new PlayerConfig() );
+            => AddPlayer(new PlayerConfig());
 
-        private void RemovePlayer( string name )
+        private void RemovePlayer(string name)
         {
-            _players.Remove( name );
-            _config.States.Remove( name );
+            _players.Remove(name);
+            _config.States.Remove(name);
             Save();
         }
 
         private void Save()
         {
-            _pi.SavePluginConfig( _config );
-            _plugin.VisorManager.ResetState();
+            _pi.SavePluginConfig(_config);
+            _plugin.VisorManager!.ResetState();
         }
 
         private void DrawEnabledCheckbox()
         {
             var tmp = _config.Enabled;
-            if( ImGui.Checkbox( LabelEnabled, ref tmp ) && _config.Enabled != tmp )
-            {
-                _config.Enabled = tmp;
-                if( tmp )
-                    _plugin.VisorManager.Activate();
-                else
-                    _plugin.VisorManager.Deactivate();
-                Save();
-            }
+            if (!ImGui.Checkbox(LabelEnabled, ref tmp) || _config.Enabled == tmp)
+                return;
+
+            _config.Enabled = tmp;
+            if (tmp)
+                _plugin.VisorManager!.Activate();
+            else
+                _plugin.VisorManager!.Deactivate();
+            Save();
         }
 
-        private void DrawSettingsHeaders( int which )
+        private bool DrawTableHeader(int type)
         {
-            var names = which == 2 ? VisorStateWeaponNames : VisorStateNames;
-            ImGui.Columns( names.Length + 1, $"##header_{_currentPlayer}", true );
+            const ImGuiTableFlags flags = ImGuiTableFlags.Hideable
+              | ImGuiTableFlags.BordersOuter
+              | ImGuiTableFlags.BordersInner
+              | ImGuiTableFlags.SizingFixedSame;
 
-            if( !_setColumnWidth )
-            {
-                ImGui.SetColumnWidth( 0, FirstColumnWidth );
-                for( var i = 1; i <= VisorStateNames.Length; ++i )
-                    ImGui.SetColumnWidth( i, OtherColumnWidths );
-            }
+            var list = type == 2 ? VisorStateWeaponNames : VisorStateNames;
+            if (!ImGui.BeginTable($"##table_{type}_{_currentPlayer}", list.Length + 1, flags))
+                return false;
 
-            ImGui.NextColumn();
-            foreach( var name in names )
-            {
-                ImGui.Text( name );
-                ImGui.NextColumn();
-            }
+            ImGui.TableSetupColumn($"Job##empty_{type}_{_currentPlayer}", ImGuiTableColumnFlags.NoHide);
+            foreach (var name in list)
+                ImGui.TableSetupColumn(name);
+
+            ImGui.TableHeadersRow();
+            return true;
         }
 
-        private void DrawSettingsLine( PlayerConfig settings, int which )
+        private void DrawTableContent(PlayerConfig settings, int type)
         {
-            var jobSettings = settings.PerJob.ElementAt( _currentJob );
+            var jobSettings = settings.PerJob.ElementAt(_currentJob);
             var job         = jobSettings.Key;
-            var name        = JobNames[ ( int )jobSettings.Key ];
+            var name        = JobNames[(int) jobSettings.Key];
             var group       = jobSettings.Value;
-            var set         = which == 0 ? group.VisorSet : which == 1   ? group.HideHatSet : group.HideWeaponSet;
-            var state       = which == 0 ? group.VisorState : which == 1 ? group.HideHatState : group.HideWeaponState;
-            var tooltip1 = which switch
-            {
-                0 => "Enable visor toggle on this state.",
-                1 => "Enable headslot toggle on this state.",
-                _ => "Enable weapon toggle on this state."
-            };
-            var tooltip2 = which switch
-            {
-                0 => "Visor off/on.",
-                1 => "Headslot off/on.",
-                _ => "Weapon off/on."
-            };
 
-            ImGui.Separator();
-            ImGui.PushStyleVar( ImGuiStyleVar.ItemSpacing, new Vector2( 2, 0 ) );
-            if( job != Job.Default )
+            var (set, state, tooltip1, tooltip2) = type switch
             {
-                if( ImGui.Button( $"-##0{_currentPlayer}_{_currentJob}_{which}", new Vector2( 20, 23 ) ) )
+                0 => (group.VisorSet, group.VisorState, "Enable visor toggle on this state.", "Visor off/on."),
+                1 => (group.HideHatSet, group.HideHatState, "Enable headslot toggle on this state.", "Headslot off/on."),
+                _ => (group.HideWeaponSet, group.HideWeaponState, "Enable weapon toggle on this state.", "Weapon off / on."),
+            };
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(2 * ImGui.GetIO().FontGlobalScale, 0));
+            if (job != Job.Default)
+            {
+                if (ImGui.Button($"−##0{_currentPlayer}_{_currentJob}_{type}", new Vector2(20, 20) * ImGui.GetIO().FontGlobalScale))
                 {
-                    settings.PerJob.Remove( settings.PerJob.ElementAt( _currentJob ).Key );
-                    _currentJob = Math.Max( 0, _currentJob - 1 );
+                    settings.PerJob.Remove(settings.PerJob.ElementAt(_currentJob).Key);
+                    _currentJob = Math.Max(0, _currentJob - 1);
                     Save();
                 }
 
-                if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( $"Delete the job specific settings for {name}." );
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip($"Delete the job specific settings for {name}.");
 
                 ImGui.SameLine();
             }
-
-            ImGui.Text( name );
-            ImGui.PopStyleVar();
-            ImGui.NextColumn();
-            foreach( var v in which == 2 ? VisorStatesWeapon : VisorStates )
+            else
             {
-                var tmp1 = set.HasFlag( v );
-                ImGui.Checkbox( $"##0{which}_{_currentPlayer}_{_currentJob}_{v}", ref tmp1 );
-                if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( tooltip1 );
-                if( !tmp1 )
-                    ImGui.PushStyleVar( ImGuiStyleVar.Alpha, 0.35f );
+                ImGui.AlignTextToFramePadding();
+            }
 
-                var tmp2 = tmp1 && state.HasFlag( v );
+            ImGui.Text(name);
+            ImGui.PopStyleVar();
+
+            foreach (var v in type == 2 ? VisorStatesWeapon : VisorStates)
+            {
+                ImGui.TableNextColumn();
+                var tmp1 = set.HasFlag(v);
+                ImGui.Checkbox($"##0{type}_{_currentPlayer}_{_currentJob}_{v}", ref tmp1);
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(tooltip1);
+                if (!tmp1)
+                    ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.35f);
+
+                var tmp2 = tmp1 && state.HasFlag(v);
                 ImGui.SameLine();
-                ImGui.Checkbox( $"##1{which}_{_currentPlayer}_{_currentJob}_{v}", ref tmp2 );
-                if( !tmp1 )
+                ImGui.Checkbox($"##1{type}_{_currentPlayer}_{_currentJob}_{v}", ref tmp2);
+                if (!tmp1)
                 {
                     tmp2 = false;
                     ImGui.PopStyleVar();
                 }
 
-                if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( tooltip2 );
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(tooltip2);
 
 
-                if( tmp1 != set.HasFlag( v ) || tmp2 != state.HasFlag( v ) )
+                if (tmp1 != set.HasFlag(v) || tmp2 != state.HasFlag(v))
                 {
-                    switch( which )
+                    switch (type)
                     {
-                    case 0:
-                        group.VisorSet   = tmp1 ? set | v : set & ~v;
-                        group.VisorState = tmp2 ? state | v : state & ~v;
-                        break;
-                    case 1:
-                        group.HideHatSet   = tmp1 ? set | v : set & ~v;
-                        group.HideHatState = tmp2 ? state | v : state & ~v;
-                        break;
-                    default:
-                        group.HideWeaponSet   = tmp1 ? set | v : set & ~v;
-                        group.HideWeaponState = tmp2 ? state | v : state & ~v;
-                        break;
+                        case 0:
+                            group.VisorSet   = tmp1 ? set | v : set & ~v;
+                            group.VisorState = tmp2 ? state | v : state & ~v;
+                            break;
+                        case 1:
+                            group.HideHatSet   = tmp1 ? set | v : set & ~v;
+                            group.HideHatState = tmp2 ? state | v : state & ~v;
+                            break;
+                        default:
+                            group.HideWeaponSet   = tmp1 ? set | v : set & ~v;
+                            group.HideWeaponState = tmp2 ? state | v : state & ~v;
+                            break;
                     }
 
-                    settings.PerJob[ job ] = group;
+                    settings.PerJob[job] = group;
                     Save();
                 }
-
-                ImGui.NextColumn();
             }
         }
 
-        private void DrawAddJobSelector( PlayerConfig settings )
+        private void DrawTable(PlayerConfig settings, int type)
         {
-            if( settings.PerJob.Count == JobNames.Length )
+            if (!DrawTableHeader(type))
                 return;
 
-            var availableJobsAndIndices = JobNames.Select( ( j, i ) => ( j, i ) ).Where( p => !settings.PerJob.ContainsKey( Jobs[ p.i ] ) );
+            for (_currentJob = 0; _currentJob < settings.PerJob.Count; ++_currentJob)
+                DrawTableContent(settings, type);
 
-            if( !ImGui.BeginCombo( $"Add Job##{_currentPlayer}", "", ImGuiComboFlags.NoPreview ) )
+            ImGui.EndTable();
+        }
+
+        private void DrawAddJobSelector(PlayerConfig settings)
+        {
+            if (settings.PerJob.Count == JobNames.Length)
                 return;
 
-            foreach( var (job, index) in availableJobsAndIndices )
+            var availableJobsAndIndices = JobNames.Select((j, i) => (j, i)).Where(p => !settings.PerJob.ContainsKey(Jobs[p.i]));
+
+            if (!ImGui.BeginCombo($"Add Job##{_currentPlayer}", "", ImGuiComboFlags.NoPreview))
+                return;
+
+            foreach (var (job, index) in availableJobsAndIndices)
             {
-                if( ImGui.Selectable( $"{job}##{_currentPlayer}", false ) )
-                {
-                    settings.PerJob.Add( Jobs[ index ], VisorChangeGroup.Empty );
-                    Save();
-                }
+                if (!ImGui.Selectable($"{job}##{_currentPlayer}", false))
+                    continue;
+
+                settings.PerJob.Add(Jobs[index], VisorChangeGroup.Empty);
+                Save();
             }
 
             ImGui.EndCombo();
@@ -234,134 +235,122 @@ namespace AutoVisor.GUI
 
         private void DrawPlayerGroup()
         {
-            var name = _players.ElementAt( _currentPlayer );
+            var name = _players.ElementAt(_currentPlayer);
 
-            if( !ImGui.CollapsingHeader( name ) )
+            if (!ImGui.CollapsingHeader(name))
                 return;
 
-            ImGui.Dummy( new Vector2( 0, 5 ) );
+            ImGui.Dummy(_horizontalSpace);
 
-            var playerConfig = _config.States[ name ];
+            var playerConfig = _config.States[name];
             var tmp          = playerConfig.Enabled;
-            if( ImGui.Checkbox( $"Enabled##{name}", ref tmp ) && tmp != playerConfig.Enabled )
+            if (ImGui.Checkbox($"Enabled##{name}", ref tmp) && tmp != playerConfig.Enabled)
             {
                 playerConfig.Enabled = tmp;
                 Save();
             }
 
             ImGui.SameLine();
-            if( ImGui.Button( $"Delete##{name}" ) )
+            if (ImGui.Button($"Delete##{name}"))
             {
-                RemovePlayer( name );
+                RemovePlayer(name);
                 --_currentPlayer;
-                ImGui.Columns( 1 );
+                ImGui.Columns(1);
                 return;
             }
 
-            if( ImGui.IsItemHovered() )
-                ImGui.SetTooltip( $"Delete all settings for the character {name}." );
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip($"Delete all settings for the character {name}.");
 
-            if( name != ( _pi.ClientState.LocalPlayer?.Name ?? "" ) )
+            if (name != (_pi.ClientState.LocalPlayer?.Name ?? ""))
             {
                 ImGui.SameLine();
-                if( ImGui.Button( $"Duplicate##{name}" ) )
-                    AddPlayer( _config.States[ name ] );
-                if( ImGui.IsItemHovered() )
-                    ImGui.SetTooltip( $"Duplicate the settings for this character to your current character." );
+                if (ImGui.Button($"Duplicate##{name}"))
+                    AddPlayer(_config.States[name]);
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip($"Duplicate the settings for this character to your current character.");
             }
 
             ImGui.SameLine();
-            DrawAddJobSelector( playerConfig );
+            DrawAddJobSelector(playerConfig);
 
-            ImGui.Dummy( new Vector2( 0, 5 ) );
-            if( ImGui.TreeNode( $"Visor State##{name}" ) )
+            ImGui.Dummy(_horizontalSpace);
+            var cursor = ImGui.GetCursorPosX();
+            if (ImGui.TreeNode($"Visor State##{name}"))
             {
-                DrawSettingsHeaders( 0 );
-
-                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
-                    DrawSettingsLine( playerConfig, 0 );
-
-                ImGui.Columns( 1 );
+                ImGui.SetCursorPosX(cursor);
+                DrawTable(playerConfig, 0);
                 ImGui.TreePop();
             }
 
-            if( ImGui.TreeNode( $"Headslot State##{name}" ) )
+            if (ImGui.TreeNode($"Headslot State##{name}"))
             {
-                DrawSettingsHeaders( 1 );
-
-                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
-                    DrawSettingsLine( playerConfig, 1 );
-
-                ImGui.Columns( 1 );
+                ImGui.SetCursorPosX(cursor);
+                DrawTable(playerConfig, 1);
                 ImGui.TreePop();
             }
 
-            if( ImGui.TreeNode( $"Weapon State##{name}" ) )
+            if (ImGui.TreeNode($"Weapon State##{name}"))
             {
-                DrawSettingsHeaders( 2 );
-
-                for( _currentJob = 0; _currentJob < playerConfig.PerJob.Count; ++_currentJob )
-                    DrawSettingsLine( playerConfig, 2 );
-
-                ImGui.Columns( 1 );
+                ImGui.SetCursorPosX(cursor);
+                DrawTable(playerConfig, 2);
                 ImGui.TreePop();
             }
         }
 
         private static void DrawHelp()
         {
-            if( !ImGui.CollapsingHeader( "Help", ImGuiTreeNodeFlags.DefaultOpen ) )
+            if (!ImGui.CollapsingHeader("Help", ImGuiTreeNodeFlags.DefaultOpen))
                 return;
 
-            ImGui.TextWrapped( "AutoVisor allows you to automatically use /visor, /displayhead or /displayarms on certain conditions. " +
-                "The configuration is character-name and job-specific, with a default job that triggers if no specific job is active. " +
-                "The first checkbox per column activates automatic changing for the specific condition, the second indicates to which state the setting should be changed.\n" +
-                "Precedences are:\n" +
-                "\t1. Fishing\n" +
-                "\t2. Gathering ~ Crafting\n" +
-                "\t3. In Flight ~ Diving\n" +
-                "\t4. Mounted ~ Swimming ~ Wearing Fashion Accessories\n" +
-                "\t5. Casting\n" +
-                "\t6. In Combat\n" +
-                "\t7. Weapon Drawn\n" +
-                "\t8. In Duty\n" +
-                "\t9. Normal." );
+            ImGui.TextWrapped("AutoVisor allows you to automatically use /visor, /displayhead or /displayarms on certain conditions. "
+              + "The configuration is character-name and job-specific, with a default job that triggers if no specific job is active. "
+              + "The first checkbox per column activates automatic changing for the specific condition, the second indicates to which state the setting should be changed.\n"
+              + "Precedences are:\n"
+              + "\t1. Fishing\n"
+              + "\t2. Gathering ~ Crafting\n"
+              + "\t3. In Flight ~ Diving\n"
+              + "\t4. Mounted ~ Swimming ~ Wearing Fashion Accessories\n"
+              + "\t5. Casting\n"
+              + "\t6. In Combat\n"
+              + "\t7. Weapon Drawn\n"
+              + "\t8. In Duty\n"
+              + "\t9. Normal.");
         }
 
         private void DrawPlayerAdd()
         {
             var name = _pi.ClientState.LocalPlayer?.Name ?? "";
-            if( name.Length == 0 || _config.States.ContainsKey( name ) )
+            if (name.Length == 0 || _config.States.ContainsKey(name))
                 return;
 
-            if( ImGui.Button( "Add settings for this character..." ) )
+            if (ImGui.Button("Add settings for this character..."))
                 AddPlayer();
         }
 
         public void Draw()
         {
-            if( !Visible )
+            if (!Visible)
                 return;
 
-            ImGui.SetNextWindowSizeConstraints( MinSize, MaxSize );
-            if( !ImGui.Begin( PluginName, ref Visible ) )
+            if (!ImGui.Begin(PluginName, ref Visible))
                 return;
 
             DrawEnabledCheckbox();
             ImGui.SameLine();
             DrawPlayerAdd();
 
-            ImGui.Dummy( new Vector2( 0, 10 ) );
+            _horizontalSpace = new Vector2(0, 5 * ImGui.GetIO().FontGlobalScale);
+
+            ImGui.Dummy(_horizontalSpace * 2);
 
             DrawHelp();
-            ImGui.Dummy( new Vector2( 0, 10 ) );
-            for( _currentPlayer = 0; _currentPlayer < _players.Count; ++_currentPlayer )
+            ImGui.Dummy(_horizontalSpace * 2);
+            for (_currentPlayer = 0; _currentPlayer < _players.Count; ++_currentPlayer)
             {
                 DrawPlayerGroup();
-                ImGui.Dummy( new Vector2( 0, 5 ) );
+                ImGui.Dummy(_horizontalSpace);
             }
-
-            _setColumnWidth = true;
 
             ImGui.End();
         }

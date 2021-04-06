@@ -17,101 +17,106 @@ namespace AutoVisor.Classes
         private const ushort EqpParameterSize = 8;
         private const ushort BlockSize        = 160;
         private const ushort TotalBlockCount  = 64;
-        private ushort ExpandedBlockCount { get; set; }
+        private       ushort ExpandedBlockCount { get; set; }
 
-        private readonly ulong[][] _blocks = new ulong[TotalBlockCount][];
+        private readonly ulong[]?[] _blocks = new ulong[TotalBlockCount][];
 
-        private static ushort BlockIdx( ushort idx ) => ( ushort )( idx / BlockSize );
-        private static ushort SubIdx( ushort idx ) => ( ushort )( idx % BlockSize );
+        private static ushort BlockIdx(ushort idx)
+            => (ushort) (idx / BlockSize);
 
-        public bool ExpandBlock( ushort idx )
+        private static ushort SubIdx(ushort idx)
+            => (ushort) (idx % BlockSize);
+
+        public bool ExpandBlock(ushort idx)
         {
-            if( idx >= TotalBlockCount || _blocks[ idx ] != null )
+            if (idx >= TotalBlockCount || _blocks[idx] != null)
                 return false;
 
-            _blocks[ idx ] = new ulong[BlockSize];
+            _blocks[idx] = new ulong[BlockSize];
             ++ExpandedBlockCount;
-            _blocks[ 0 ][ 0 ] |= 1ul << idx;
+            _blocks[0]![0] |= 1ul << idx;
             return true;
         }
 
-        public bool CollapseBlock( ushort idx )
+        public bool CollapseBlock(ushort idx)
         {
-            if( idx >= TotalBlockCount || _blocks[ idx ] == null )
+            if (idx >= TotalBlockCount || _blocks[idx] == null)
                 return false;
 
-            _blocks[ idx ] = null;
+            _blocks[idx] = null;
             --ExpandedBlockCount;
-            _blocks[ 0 ][ 0 ] &= ~( 1ul << idx );
+            _blocks[0]![0] &= ~(1ul << idx);
             return true;
         }
 
-        public void SetEntry( ushort idx, ulong entry )
+        public void SetEntry(ushort idx, ulong entry)
         {
-            var block = BlockIdx( idx );
-            if( block >= TotalBlockCount )
+            var block = BlockIdx(idx);
+            if (block >= TotalBlockCount)
                 return;
 
-            if( entry != 0 )
+            if (entry != 0)
             {
-                ExpandBlock( block );
-                _blocks[ block ][ SubIdx( idx ) ] = entry;
+                ExpandBlock(block);
+                _blocks[block]![SubIdx(idx)] = entry;
             }
             else
             {
-                var array = _blocks[ block ];
-                if( array != null )
-                {
-                    array[ SubIdx( idx ) ] = entry;
-                    if( array.All( e => e == 0 ) ) CollapseBlock( block );
-                }
+                var array = _blocks[block];
+                if (array == null)
+                    return;
+
+                array[SubIdx(idx)] = entry;
+                if (array.All(e => e == 0))
+                    CollapseBlock(block);
             }
         }
 
         public byte[] WriteBytes()
         {
             var       dataSize = ExpandedBlockCount * BlockSize * EqpParameterSize;
-            using var mem      = new MemoryStream( dataSize );
-            using var bw       = new BinaryWriter( mem );
+            using var mem      = new MemoryStream(dataSize);
+            using var bw       = new BinaryWriter(mem);
 
-            foreach( var parameter in _blocks.Where( array => array != null )
-                .SelectMany( array => array ) )
-                bw.Write( parameter );
+            foreach (var parameter in _blocks.Where(array => array != null)
+                .SelectMany(array => array))
+                bw.Write(parameter);
 
             return mem.ToArray();
         }
 
-        public ulong GetEntry( ushort idx )
+        public ulong GetEntry(ushort idx)
         {
             // Skip the zeroth item.
             idx = idx == 0 ? 1 : idx;
-            var block = BlockIdx( idx );
-            var array = block < _blocks.Length ? _blocks[ block ] : null;
-            return array?[ SubIdx( idx ) ] ?? 0;
+            var block = BlockIdx(idx);
+            var array = block < _blocks.Length ? _blocks[block] : null;
+            return array?[SubIdx(idx)] ?? 0;
         }
 
-        public EqpFile( FileResource file )
+        public EqpFile(FileResource file)
         {
             File = file;
-            file.Reader.BaseStream.Seek( 0, SeekOrigin.Begin );
+            file.Reader.BaseStream.Seek(0, SeekOrigin.Begin);
             var blockBits = File.Reader.ReadUInt64();
             // reset to 0 and just put the bitmask in the first block
             // item 0 is not accessible and it simplifies printing.
-            file.Reader.BaseStream.Seek( 0, SeekOrigin.Begin );
+            file.Reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
             ExpandedBlockCount = 0;
-            for( var i = 0; i < TotalBlockCount; ++i )
+            for (var i = 0; i < TotalBlockCount; ++i)
             {
                 var flag = 1ul << i;
-                if( ( blockBits & flag ) != flag )
+                if ((blockBits & flag) != flag)
                     continue;
 
                 ++ExpandedBlockCount;
 
-                var tmp                                       = new ulong[BlockSize];
-                for( var j = 0; j < BlockSize; ++j ) tmp[ j ] = File.Reader.ReadUInt64();
+                var tmp = new ulong[BlockSize];
+                for (var j = 0; j < BlockSize; ++j)
+                    tmp[j] = File.Reader.ReadUInt64();
 
-                _blocks[ i ] = tmp;
+                _blocks[i] = tmp;
             }
         }
     }
