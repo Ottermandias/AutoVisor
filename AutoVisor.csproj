@@ -4,8 +4,8 @@
     <LangVersion>preview</LangVersion>
     <RootNamespace>AutoVisor</RootNamespace>
     <AssemblyName>AutoVisor</AssemblyName>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <Company>SoftOtter</Company>
     <Product>GatherBuddy</Product>
     <Copyright>Copyright © 2020</Copyright>
@@ -33,6 +33,7 @@
 
   <PropertyGroup>
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+    <Version>1.1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
