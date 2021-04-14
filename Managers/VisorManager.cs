@@ -14,10 +14,10 @@ namespace AutoVisor.Managers
         public const string GimmickParameters   = "chara/xls/equipmentparameter/gimmickparameter.gmp";
 
         public const  int    ActorJobOffset         = 0x01E2;
-        public const  int    ActorRaceOffset        = 0x1878;
+        public const  int    ActorRaceOffset        = 0x1898;
         public const  int    ActorHatOffset         = 0x1040;
         public const  int    ActorFlagsOffset       = 0x106C;
-        public const  int    ActorWeaponDrawnOffset = 0x1980;
+        public const  int    ActorWeaponDrawnOffset = 0x19A0;
         public const  byte   ActorFlagsHideWeapon   = 0b000010;
         public const  byte   ActorFlagsHideHat      = 0b000001;
         public const  byte   ActorFlagsVisor        = 0b010000;
