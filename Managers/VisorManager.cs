@@ -69,6 +69,7 @@ namespace AutoVisor.Managers
         private          bool   _hatIsUseable;
         private          bool   _visorIsEnabled;
         private          bool   _visorEnabled;
+        private          bool?  _visorToggleEntered = null;
 
         private bool _visorIsToggled;
         // private bool   _visorIsAnimated;
@@ -302,11 +303,13 @@ namespace AutoVisor.Managers
 
         private void ToggleVisor(bool on)
         {
-            if (!_visorEnabled || on == _visorIsToggled)
+            if (!_visorEnabled || on == _visorIsToggled || on == _visorToggleEntered)
                 return;
 
             _commandManager.Execute(VisorCommand);
-            _visorIsToggled = on;
+            _visorToggleEntered = true;
+            _visorIsToggled     = on;
+            _visorToggleEntered = on;
         }
 
         private IntPtr Player()
@@ -395,6 +398,8 @@ namespace AutoVisor.Managers
             _weaponIsShown  = (flags & ActorFlagsHideWeapon) != ActorFlagsHideWeapon;
             _hatIsShown     = (flags & ActorFlagsHideHat) != ActorFlagsHideHat;
             _visorIsToggled = (flags & ActorFlagsVisor) == ActorFlagsVisor;
+            if (_visorIsToggled == _visorToggleEntered)
+                _visorToggleEntered = null;
             return _hatIsShown;
         }
     }
