@@ -172,6 +172,13 @@ namespace AutoVisor.Managers
             UpdateJob(player);
             UpdateName(player);
 
+            if (_visorToggleEntered != null)
+            {
+                UpdateFlags(player);
+                if (_visorIsToggled == _visorToggleEntered)
+                    _visorToggleEntered = null;
+            }
+
             for (var i = 0; i < NumStateLongs; ++i)
             {
                 var condition = RelevantConditionsBitmask[i] & *(ulong*) (_conditionPtr + 8 * i).ToPointer();
@@ -307,7 +314,6 @@ namespace AutoVisor.Managers
                 return;
 
             _commandManager.Execute(VisorCommand);
-            _visorToggleEntered = true;
             _visorIsToggled     = on;
             _visorToggleEntered = on;
         }
@@ -398,8 +404,6 @@ namespace AutoVisor.Managers
             _weaponIsShown  = (flags & ActorFlagsHideWeapon) != ActorFlagsHideWeapon;
             _hatIsShown     = (flags & ActorFlagsHideHat) != ActorFlagsHideHat;
             _visorIsToggled = (flags & ActorFlagsVisor) == ActorFlagsVisor;
-            if (_visorIsToggled == _visorToggleEntered)
-                _visorToggleEntered = null;
             return _hatIsShown;
         }
     }
