@@ -88,7 +88,7 @@ namespace AutoVisor.Classes
         public ulong GetEntry(ushort idx)
         {
             // Skip the zeroth item.
-            idx = idx == 0 ? 1 : idx;
+            idx = idx == 0 ? (ushort) 1 : idx;
             var block = BlockIdx(idx);
             var array = block < _blocks.Length ? _blocks[block] : null;
             return array?[SubIdx(idx)] ?? 0;

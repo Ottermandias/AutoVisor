@@ -4,8 +4,8 @@
     <LangVersion>preview</LangVersion>
     <RootNamespace>AutoVisor</RootNamespace>
     <AssemblyName>AutoVisor</AssemblyName>
-    <FileVersion>1.1.1.1</FileVersion>
-    <AssemblyVersion>1.1.1.1</AssemblyVersion>
+    <FileVersion>1.1.2.0</FileVersion>
+    <AssemblyVersion>1.1.2.0</AssemblyVersion>
     <Company>SoftOtter</Company>
     <Product>GatherBuddy</Product>
     <Copyright>Copyright © 2020</Copyright>
@@ -79,6 +79,6 @@
     </None>
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="if $(Configuration) == Release powershell Compress-Archive -Force $(TargetPath), $(TargetDir)$(SolutionName).json $(ProjectDir)$(SolutionName).zip" />
+    <Exec Command="if $(Configuration) == Release powershell Compress-Archive -Force $(TargetPath), $(TargetDir)$(SolutionName).pdb, $(TargetDir)$(SolutionName).json $(ProjectDir)$(SolutionName).zip" />
   </Target>
 </Project>
