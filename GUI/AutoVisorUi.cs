@@ -11,7 +11,7 @@ namespace AutoVisor.GUI
 {
     public class AutoVisorUi
     {
-        private const string PluginName   = "AutoVisor Configuration";
+        private const string PluginName   = "AutoVisor";
         private const string LabelEnabled = "Enable AutoVisor";
 
         private static readonly Job[]    Jobs     = Enum.GetValues(typeof(Job)).Cast<Job>().ToArray();
@@ -28,6 +28,7 @@ namespace AutoVisor.GUI
         private static readonly string[] VisorStateWeaponNames =
             VisorStateNames.Where((v, i) => VisorManager.ValidStatesForWeapon[VisorStates[i]]).ToArray();
 
+        private readonly string                 _configHeader;
         private readonly AutoVisor              _plugin;
         private readonly DalamudPluginInterface _pi;
         private readonly AutoVisorConfiguration _config;
@@ -43,10 +44,11 @@ namespace AutoVisor.GUI
 
         public AutoVisorUi(AutoVisor plugin, DalamudPluginInterface pi, AutoVisorConfiguration config)
         {
-            _plugin  = plugin;
-            _pi      = pi;
-            _config  = config;
-            _players = _config.States.Select(kvp => kvp.Key).ToList();
+            _plugin       = plugin;
+            _configHeader = AutoVisor.Version.Length > 0 ? $"{PluginName} v{AutoVisor.Version}" : PluginName;
+            _pi           = pi;
+            _config       = config;
+            _players      = _config.States.Select(kvp => kvp.Key).ToList();
             var idx = Array.IndexOf(VisorStateNames, "Drawn");
             if (idx < 0)
                 return;
@@ -96,23 +98,24 @@ namespace AutoVisor.GUI
             Save();
         }
 
-        private bool DrawTableHeader(int type)
+        private ImGuiRaii? DrawTableHeader(int type)
         {
             const ImGuiTableFlags flags = ImGuiTableFlags.Hideable
               | ImGuiTableFlags.BordersOuter
               | ImGuiTableFlags.BordersInner
               | ImGuiTableFlags.SizingFixedSame;
 
-            var list = type == 2 ? VisorStateWeaponNames : VisorStateNames;
-            if (!ImGui.BeginTable($"##table_{type}_{_currentPlayer}", list.Length + 1, flags))
-                return false;
+            var list  = type == 2 ? VisorStateWeaponNames : VisorStateNames;
+            var imgui = new ImGuiRaii();
+            if (!imgui.Begin(() => ImGui.BeginTable($"##table_{type}_{_currentPlayer}", list.Length + 1, flags), ImGui.EndTable))
+                return null;
 
             ImGui.TableSetupColumn($"Job##empty_{type}_{_currentPlayer}", ImGuiTableColumnFlags.NoHide);
             foreach (var name in list)
                 ImGui.TableSetupColumn(name);
 
             ImGui.TableHeadersRow();
-            return true;
+            return imgui;
         }
 
         private void DrawTableContent(PlayerConfig settings, int type)
@@ -130,7 +133,8 @@ namespace AutoVisor.GUI
             };
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
-            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(2 * ImGui.GetIO().FontGlobalScale, 0));
+            using var imgui = new ImGuiRaii()
+                .PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(2 * ImGui.GetIO().FontGlobalScale, 0));
             if (job != Job.Default)
             {
                 if (ImGui.Button($"−##0{_currentPlayer}_{_currentJob}_{type}", new Vector2(20, 20) * ImGui.GetIO().FontGlobalScale))
@@ -151,7 +155,7 @@ namespace AutoVisor.GUI
             }
 
             ImGui.Text(name);
-            ImGui.PopStyleVar();
+            imgui.PopStyles();
 
             foreach (var v in type == 2 ? VisorStatesWeapon : VisorStates)
             {
@@ -161,7 +165,7 @@ namespace AutoVisor.GUI
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip(tooltip1);
                 if (!tmp1)
-                    ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.35f);
+                    imgui.PushStyle(ImGuiStyleVar.Alpha, 0.35f);
 
                 var tmp2 = tmp1 && state.HasFlag(v);
                 ImGui.SameLine();
@@ -169,7 +173,7 @@ namespace AutoVisor.GUI
                 if (!tmp1)
                 {
                     tmp2 = false;
-                    ImGui.PopStyleVar();
+                    imgui.PopStyles();
                 }
 
                 if (ImGui.IsItemHovered())
@@ -202,13 +206,12 @@ namespace AutoVisor.GUI
 
         private void DrawTable(PlayerConfig settings, int type)
         {
-            if (!DrawTableHeader(type))
+            using var table = DrawTableHeader(type);
+            if (table == null)
                 return;
 
             for (_currentJob = 0; _currentJob < settings.PerJob.Count; ++_currentJob)
                 DrawTableContent(settings, type);
-
-            ImGui.EndTable();
         }
 
         private void DrawAddJobSelector(PlayerConfig settings)
@@ -218,7 +221,9 @@ namespace AutoVisor.GUI
 
             var availableJobsAndIndices = JobNames.Select((j, i) => (j, i)).Where(p => !settings.PerJob.ContainsKey(Jobs[p.i]));
 
-            if (!ImGui.BeginCombo($"Add Job##{_currentPlayer}", "", ImGuiComboFlags.NoPreview))
+            using var combo = new ImGuiRaii();
+
+            if (!combo.Begin(() => ImGui.BeginCombo($"Add Job##{_currentPlayer}", "", ImGuiComboFlags.NoPreview), ImGui.EndCombo))
                 return;
 
             foreach (var (job, index) in availableJobsAndIndices)
@@ -229,8 +234,6 @@ namespace AutoVisor.GUI
                 settings.PerJob.Add(Jobs[index], VisorChangeGroup.Empty);
                 Save();
             }
-
-            ImGui.EndCombo();
         }
 
         private void DrawPlayerGroup()
@@ -333,26 +336,32 @@ namespace AutoVisor.GUI
             if (!Visible)
                 return;
 
-            if (!ImGui.Begin(PluginName, ref Visible))
+            ImGui.SetNextWindowSizeConstraints(new Vector2(980, 500) * ImGui.GetIO().FontGlobalScale, new Vector2(4000, 4000));
+            if (!ImGui.Begin(_configHeader, ref Visible))
                 return;
 
-            DrawEnabledCheckbox();
-            ImGui.SameLine();
-            DrawPlayerAdd();
-
-            _horizontalSpace = new Vector2(0, 5 * ImGui.GetIO().FontGlobalScale);
-
-            ImGui.Dummy(_horizontalSpace * 2);
-
-            DrawHelp();
-            ImGui.Dummy(_horizontalSpace * 2);
-            for (_currentPlayer = 0; _currentPlayer < _players.Count; ++_currentPlayer)
+            try
             {
-                DrawPlayerGroup();
-                ImGui.Dummy(_horizontalSpace);
-            }
+                DrawEnabledCheckbox();
+                ImGui.SameLine();
+                DrawPlayerAdd();
 
-            ImGui.End();
+                _horizontalSpace = new Vector2(0, 5 * ImGui.GetIO().FontGlobalScale);
+
+                ImGui.Dummy(_horizontalSpace * 2);
+
+                DrawHelp();
+                ImGui.Dummy(_horizontalSpace * 2);
+                for (_currentPlayer = 0; _currentPlayer < _players.Count; ++_currentPlayer)
+                {
+                    DrawPlayerGroup();
+                    ImGui.Dummy(_horizontalSpace);
+                }
+            }
+            finally
+            {
+                ImGui.End();
+            }
         }
     }
 }

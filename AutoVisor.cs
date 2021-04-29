@@ -1,3 +1,4 @@
+using System.Reflection;
 using AutoVisor.GUI;
 using AutoVisor.Managers;
 using Dalamud.Game.Command;
@@ -11,6 +12,8 @@ namespace AutoVisor
         public string Name
             => "AutoVisor";
 
+        public static string Version = "";
+
         private DalamudPluginInterface? _pluginInterface;
         private AutoVisorConfiguration? _configuration;
         private CommandManager?         _commandManager;
@@ -20,6 +23,7 @@ namespace AutoVisor
         public void Initialize(DalamudPluginInterface pluginInterface)
         {
             _pluginInterface = pluginInterface;
+            Version          = Assembly.GetExecutingAssembly()?.GetName().Version.ToString() ?? "";
             _commandManager  = new CommandManager(pluginInterface);
             _configuration   = pluginInterface.GetPluginConfig() as AutoVisorConfiguration ?? new AutoVisorConfiguration();
             VisorManager     = new VisorManager(_pluginInterface, _configuration, _commandManager);
