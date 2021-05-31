@@ -78,16 +78,40 @@ namespace AutoVisor.Managers
         private readonly DalamudPluginInterface _pi;
         private readonly AutoVisorConfiguration _config;
         private readonly CommandManager         _commandManager;
-        private readonly EqpFile                _eqpFile;
-        private readonly EqpFile                _gmpFile;
+        private readonly EqpFile?               _eqpFile;
+        private readonly EqpFile?               _gmpFile;
+
+        private static EqpFile? ObtainEqpFile(DalamudPluginInterface pi)
+        {
+            try
+            {
+                return new EqpFile(pi.Data.GetFile(EquipmentParameters));
+            }
+            catch (Exception e)
+            {
+                PluginLog.Error($"Could not obtain EqpFile:\n{e}");
+                return null;
+            }
+        }
+
+        private static EqpFile? ObtainGmpFile(DalamudPluginInterface pi)
+        {
+            try
+            {
+                return new EqpFile(pi.Data.GetFile(GimmickParameters));
+            }
+            catch (Exception e)
+            {
+                PluginLog.Error($"Could not obtain GmpFile:\n{e}");
+                return null;
+            }
+        }
 
         public VisorManager(DalamudPluginInterface pi, AutoVisorConfiguration config, CommandManager commandManager)
-            : this(pi, config, commandManager
-                , new EqpFile(pi.Data.GetFile(EquipmentParameters))
-                , new EqpFile(pi.Data.GetFile(GimmickParameters)))
+            : this(pi, config, commandManager, ObtainEqpFile(pi), ObtainGmpFile(pi))
         { }
 
-        public VisorManager(DalamudPluginInterface pi, AutoVisorConfiguration config, CommandManager commandManager, EqpFile eqp, EqpFile gmp)
+        public VisorManager(DalamudPluginInterface pi, AutoVisorConfiguration config, CommandManager commandManager, EqpFile? eqp, EqpFile? gmp)
         {
             _pi             = pi;
             _config         = config;
@@ -361,6 +385,9 @@ namespace AutoVisor.Managers
 
         private bool UpdateVisor()
         {
+            if (_gmpFile == null)
+                return true;
+
             var gmpEntry = _gmpFile.GetEntry(_currentHatModelId);
             // _visorIsAnimated = ( gmpEntry & GimmickVisorAnimatedFlag ) == GimmickVisorAnimatedFlag;
             _visorIsEnabled = (gmpEntry & GimmickVisorEnabledFlag) == GimmickVisorEnabledFlag;
@@ -369,6 +396,9 @@ namespace AutoVisor.Managers
 
         private bool UpdateUsable()
         {
+            if (_eqpFile == null)
+                return true;
+
             _hatIsUseable = _currentRace switch
             {
                 Race.Hrothgar => (_eqpFile.GetEntry(_currentHatModelId) & EqpHatHrothgarFlag) == EqpHatHrothgarFlag,
