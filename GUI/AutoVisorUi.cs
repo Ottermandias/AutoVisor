@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.Remoting.Messaging;
 using AutoVisor.Classes;
 using AutoVisor.Managers;
 using Dalamud.Plugin;
@@ -21,6 +22,28 @@ namespace AutoVisor.GUI
             Enum.GetValues(typeof(VisorChangeStates)).Cast<VisorChangeStates>().ToArray();
 
         private static readonly string[] VisorStateNames = Enum.GetNames(typeof(VisorChangeStates));
+
+        private static readonly string[] PoseNames =
+        {
+            "Standing Pose",
+            "Weapon Drawn Pose",
+            "Sitting Pose",
+            "Sitting on Ground Pose",
+            "Dozing Pose",
+        };
+
+        private static readonly string[] PoseOptions =
+        {
+            "Default",
+            "Unchanged",
+            "Pose 1",
+            "Pose 2",
+            "Pose 3",
+            "Pose 4",
+            "Pose 5",
+            "Pose 6",
+            "Pose 7",
+        };
 
         private static readonly VisorChangeStates[] VisorStatesWeapon =
             VisorStates.Where(v => VisorManager.ValidStatesForWeapon[v]).ToArray();
@@ -105,7 +128,13 @@ namespace AutoVisor.GUI
               | ImGuiTableFlags.BordersInner
               | ImGuiTableFlags.SizingFixedSame;
 
-            var list  = type == 2 ? VisorStateWeaponNames : VisorStateNames;
+            var list = type switch
+            {
+                2 => VisorStateWeaponNames,
+                3 => PoseNames,
+                _ => VisorStateNames,
+            };
+
             var imgui = new ImGuiRaii();
             if (!imgui.Begin(() => ImGui.BeginTable($"##table_{type}_{_currentPlayer}", list.Length + 1, flags), ImGui.EndTable))
                 return null;
@@ -116,6 +145,75 @@ namespace AutoVisor.GUI
 
             ImGui.TableHeadersRow();
             return imgui;
+        }
+
+        private static readonly string[] PoseTooltips = new string[]
+        {
+            "Change your default pose when standing upright.\nDefault sets the pose from login with that character.\nUnchanged does not change the pose at all.",
+            "Change your default pose when standing with your weapon drawn.\nDefault sets the pose from login with that character.\nUnchanged does not change the pose at all.",
+            "Change your default pose when sitting on the ground.\nDefault sets the pose from login with that character.\nUnchanged does not change the pose at all.",
+            "Change your default pose when sitting on an object.\nDefault sets the pose from login with that character.\nUnchanged does not change the pose at all.",
+            "Change your default pose when dozing in a bed.\nDefault sets the pose from login with that character.\nUnchanged does not change the pose at all.",
+        };
+
+        public void DrawPoseTableContent(PlayerConfig settings, Job job, VisorChangeGroup jobSettings)
+        {
+            for (var i = 0; i < PoseNames.Length; ++i)
+            {
+                ImGui.TableNextColumn();
+                int tmp = i switch
+                {
+                    0 => jobSettings.StandingPose,
+                    1 => jobSettings.WeaponDrawnPose,
+                    2 => jobSettings.SittingPose,
+                    3 => jobSettings.GroundSittingPose,
+                    4 => jobSettings.DozingPose,
+                    _ => throw new NotImplementedException("There are no more Cpose targets."),
+                };
+                tmp = tmp switch
+                {
+                    CPoseManager.DefaultPose   => 0,
+                    CPoseManager.UnchangedPose => 1,
+                    _                          => tmp + 2,
+                };
+                var copy = tmp;
+
+                ImGui.SetNextItemWidth(-1);
+                if (ImGui.Combo($"##03_{_currentPlayer}_{_currentJob}_pose_{i}", ref tmp, PoseOptions, CPoseManager.NumPoses[i] + 2)
+                 && tmp != copy)
+                {
+                    var value = (byte) (tmp switch
+                    {
+                        0 => CPoseManager.DefaultPose,
+                        1 => CPoseManager.UnchangedPose,
+                        _ => tmp - 2,
+                    });
+
+                    switch (i)
+                    {
+                        case 0:
+                            jobSettings.StandingPose = value;
+                            break;
+                        case 1:
+                            jobSettings.WeaponDrawnPose = value;
+                            break;
+                        case 2:
+                            jobSettings.SittingPose = value;
+                            break;
+                        case 3:
+                            jobSettings.GroundSittingPose = value;
+                            break;
+                        case 4:
+                            jobSettings.DozingPose = value;
+                            break;
+                    }
+                    settings.PerJob[job] = jobSettings;
+                    Save();
+                }
+
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(PoseTooltips[i]);
+            }
         }
 
         private void DrawTableContent(PlayerConfig settings, int type)
@@ -156,6 +254,12 @@ namespace AutoVisor.GUI
 
             ImGui.Text(name);
             imgui.PopStyles();
+
+            if (type == 3)
+            {
+                DrawPoseTableContent(settings, job, group);
+                return;
+            }
 
             foreach (var v in type == 2 ? VisorStatesWeapon : VisorStates)
             {
@@ -297,6 +401,13 @@ namespace AutoVisor.GUI
             {
                 ImGui.SetCursorPosX(cursor);
                 DrawTable(playerConfig, 2);
+                ImGui.TreePop();
+            }
+
+            if (ImGui.TreeNode($"Poses##{name}"))
+            {
+                ImGui.SetCursorPosX(cursor);
+                DrawTable(playerConfig, 3);
                 ImGui.TreePop();
             }
         }

@@ -80,6 +80,7 @@ namespace AutoVisor.Managers
         private readonly CommandManager         _commandManager;
         private readonly EqpFile?               _eqpFile;
         private readonly EqpFile?               _gmpFile;
+        public readonly  CPoseManager           CPoseManager;
 
         private static EqpFile? ObtainEqpFile(DalamudPluginInterface pi)
         {
@@ -118,6 +119,7 @@ namespace AutoVisor.Managers
             _commandManager = commandManager;
             _eqpFile        = eqp;
             _gmpFile        = gmp;
+            CPoseManager    = new CPoseManager(_pi, _commandManager);
             // Some hacky shit to not resolve the address again.
             _conditionPtr = BaseAddressResolver.DebugScannedValues["ClientStateAddressResolver"]
                 .Find(kvp => kvp.Item1 == "ConditionFlags").Item2;
@@ -126,7 +128,10 @@ namespace AutoVisor.Managers
         }
 
         public void Dispose()
-            => Deactivate();
+        {
+            CPoseManager.Dispose();
+            Deactivate();
+        }
 
         public void Activate()
         {
@@ -147,7 +152,10 @@ namespace AutoVisor.Managers
         }
 
         public void ResetState()
-            => Array.Clear(_currentState, 0, NumStateLongs);
+        {
+            Array.Clear(_currentState, 0, NumStateLongs);
+            _currentJob = 0;
+        }
 
         private static readonly ulong[] RelevantConditionsBitmask = new ulong[NumStateLongs]
         {
@@ -193,8 +201,8 @@ namespace AutoVisor.Managers
             if (player == IntPtr.Zero)
                 return;
 
-            UpdateJob(player);
             UpdateName(player);
+            UpdateJob(player);
 
             if (_visorToggleEntered != null)
             {
@@ -349,6 +357,21 @@ namespace AutoVisor.Managers
             return player;
         }
 
+        private void UpdatePoses()
+        {
+            if (!_config.States.TryGetValue(_currentName, out var config))
+                return;
+
+            if (!config.PerJob.TryGetValue(_currentJob, out var settings))
+                settings = config.PerJob[Job.Default];
+
+            CPoseManager.SetStandingPose(settings.StandingPose);
+            CPoseManager.SetWeaponDrawnPose(settings.WeaponDrawnPose);
+            CPoseManager.SetSitPose(settings.SittingPose);
+            CPoseManager.SetGroundSitPose(settings.GroundSittingPose);
+            CPoseManager.SetDozePose(settings.DozingPose);
+        }
+
         private void UpdateName(IntPtr player)
         {
             var name = Marshal.PtrToStringAnsi(player + 0x30, 30).TrimEnd('\0');
@@ -356,6 +379,7 @@ namespace AutoVisor.Managers
                 return;
 
             ResetState();
+            CPoseManager.ResetDefaultPoses();
             _currentName = name;
         }
 
@@ -373,6 +397,7 @@ namespace AutoVisor.Managers
 
             ResetState();
             _currentJob = (Job) Marshal.ReadByte(actor + ActorJobOffset);
+            UpdatePoses();
         }
 
         private bool UpdateRace(IntPtr actor)
