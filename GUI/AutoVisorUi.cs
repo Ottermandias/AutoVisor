@@ -23,15 +23,6 @@ namespace AutoVisor.GUI
 
         private static readonly string[] VisorStateNames = Enum.GetNames(typeof(VisorChangeStates));
 
-        private static readonly string[] PoseNames =
-        {
-            "Standing Pose",
-            "Weapon Drawn Pose",
-            "Sitting Pose",
-            "Sitting on Ground Pose",
-            "Dozing Pose",
-        };
-
         private static readonly string[] PoseOptions =
         {
             "Default",
@@ -131,7 +122,7 @@ namespace AutoVisor.GUI
             var list = type switch
             {
                 2 => VisorStateWeaponNames,
-                3 => PoseNames,
+                3 => CPoseManager.PoseNames,
                 _ => VisorStateNames,
             };
 
@@ -158,7 +149,7 @@ namespace AutoVisor.GUI
 
         public void DrawPoseTableContent(PlayerConfig settings, Job job, VisorChangeGroup jobSettings)
         {
-            for (var i = 0; i < PoseNames.Length; ++i)
+            for (var i = 0; i < CPoseManager.PoseNames.Length; ++i)
             {
                 ImGui.TableNextColumn();
                 int tmp = i switch

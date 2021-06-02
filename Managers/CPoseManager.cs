@@ -25,6 +25,15 @@ namespace AutoVisor.Managers
             NumDozePoses,
         };
 
+        public static readonly string[] PoseNames =
+        {
+            "Standing Pose",
+            "Weapon Drawn Pose",
+            "Sitting Pose",
+            "Sitting on Ground Pose",
+            "Dozing Pose",
+        };
+
         private static readonly Dictionary<byte, byte> StandPoses = new()
         {
             { 0, 0 },
@@ -68,7 +77,7 @@ namespace AutoVisor.Managers
         {
             return pose switch
             {
-                0   => weaponDrawn ? 0 : 1,
+                0   => weaponDrawn ? 1 : 0,
                 50  => 2,
                 52  => 3,
                 88  => 4,
@@ -170,7 +179,7 @@ namespace AutoVisor.Managers
             }
             else if (toWhat >= NumPoses[which])
             {
-                PluginLog.Error($"Higher pose requested than possible for {which}: {toWhat} / {NumPoses[which]}.");
+                PluginLog.Error($"Higher pose requested than possible for {PoseNames[which]}: {toWhat} / {NumPoses[which]}.");
                 return;
             }
 
@@ -187,7 +196,7 @@ namespace AutoVisor.Managers
                     if (pose != toWhat)
                     {
                         WritePose(which, toWhat);
-                        PluginLog.Verbose("Wrote {What} to state {State} because it was {Pose}. (currentState == which)", toWhat, which, pose);
+                        PluginLog.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat, PoseNames[which], PoseNames[currentState]);
                     }
                 }
                 else
@@ -197,19 +206,19 @@ namespace AutoVisor.Managers
                         var i = 0;
                         do
                         {
-                            PluginLog.Verbose("Execute /cpose to get from {State} to {What}.", GetCPoseActorState(), toWhat);
+                            PluginLog.Debug("Execute /cpose to get from {OldPose} to {NewPose} of {CurrentState:l}.", pose, toWhat, PoseNames[currentState]);
                             _commandManager.Execute("/cpose");
-                            Task.Delay(24);
+                            Task.Delay(50);
                         } while (toWhat != GetCPoseActorState() && i++ < 8);
-                        if (i == 8)
-                            PluginLog.Error("Could not change pose.");
+                        if (i > 8)
+                            PluginLog.Error("Could not change pose of {CurrentState:l}.", PoseNames[GetCPoseActorState()]);
                     });
                 }
             }
             else if (pose != toWhat)
             {
                 WritePose(which, toWhat);
-                PluginLog.Verbose("Wrote {What} to state {State} because it was {Pose}. (currentState != which)", toWhat, which, pose);
+                PluginLog.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat, PoseNames[which], PoseNames[currentState]);
             }
         }
 
