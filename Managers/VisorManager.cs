@@ -129,7 +129,6 @@ namespace AutoVisor.Managers
 
         public void Dispose()
         {
-            CPoseManager.Dispose();
             Deactivate();
         }
 
@@ -189,6 +188,16 @@ namespace AutoVisor.Managers
             0x0000FFFF00FF0000,
         };
 
+        private unsafe void UpdateWeaponDrawn(IntPtr player)
+        {
+            var weaponDrawn = *((byte*)player.ToPointer() + ActorWeaponDrawnOffset);
+            if (weaponDrawn == _currentWeaponDrawn)
+                return;
+
+            _currentWeaponDrawn      = weaponDrawn;
+            CPoseManager.WeaponDrawn = (_currentWeaponDrawn & ActorWeaponDrawn) != 0;
+        }
+
         public unsafe void OnFrameworkUpdate(object framework)
         {
             for (var i = 0; i < NumStateLongs; ++i)
@@ -224,13 +233,7 @@ namespace AutoVisor.Managers
                 }
 
                 if (i == NumStateLongs - 1)
-                {
-                    var weaponDrawn = *((byte*) player.ToPointer() + ActorWeaponDrawnOffset);
-                    if (weaponDrawn == _currentWeaponDrawn)
-                        return;
-
-                    _currentWeaponDrawn = weaponDrawn;
-                }
+                    UpdateWeaponDrawn(player);
             }
 
             if (!_visorEnabled || !_config.States.TryGetValue(_currentName, out var config) || !config.Enabled)
@@ -353,11 +356,12 @@ namespace AutoVisor.Managers
         private IntPtr Player()
         {
             var player = Marshal.ReadIntPtr(_actorTablePtr);
-            _visorEnabled = player != IntPtr.Zero;
+            _visorEnabled       = player != IntPtr.Zero;
+            CPoseManager.PlayerPointer = player;
             return player;
         }
 
-        private void UpdatePoses()
+        private void UpdatePoses(IntPtr player)
         {
             if (!_config.States.TryGetValue(_currentName, out var config))
                 return;
@@ -365,6 +369,7 @@ namespace AutoVisor.Managers
             if (!config.PerJob.TryGetValue(_currentJob, out var settings))
                 settings = config.PerJob[Job.Default];
 
+            UpdateWeaponDrawn(player);
             CPoseManager.SetStandingPose(settings.StandingPose);
             CPoseManager.SetWeaponDrawnPose(settings.WeaponDrawnPose);
             CPoseManager.SetSitPose(settings.SittingPose);
@@ -397,7 +402,7 @@ namespace AutoVisor.Managers
 
             ResetState();
             _currentJob = (Job) Marshal.ReadByte(actor + ActorJobOffset);
-            UpdatePoses();
+            UpdatePoses(actor);
         }
 
         private bool UpdateRace(IntPtr actor)

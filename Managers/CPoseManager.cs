@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using AutoVisor.SeFunctions;
@@ -7,7 +8,7 @@ using Dalamud.Plugin;
 
 namespace AutoVisor.Managers
 {
-    public class CPoseManager : IDisposable
+    public class CPoseManager
     {
         public const int NumStandingPoses    = 7;
         public const int NumWeaponDrawnPoses = 2;
@@ -23,6 +24,72 @@ namespace AutoVisor.Managers
             NumGroundSitPoses,
             NumDozePoses,
         };
+
+        private static readonly Dictionary<byte, byte> StandPoses = new()
+        {
+            { 0, 0 },
+            { 1, 91 },
+            { 2, 92 },
+            { 3, 107 },
+            { 4, 108 },
+            { 5, 218 },
+            { 6, 219 },
+        };
+
+        private static readonly Dictionary<byte, byte> WeaponPoses = new()
+        {
+            { 0, 0 },
+            { 1, 93 },
+        };
+
+        private static readonly Dictionary<byte, byte> DozePoses = new()
+        {
+            { 0, 88 },
+            { 1, 99 },
+            { 2, 100 },
+        };
+
+        private static readonly Dictionary<byte, byte> SitPoses = new()
+        {
+            { 0, 50 },
+            { 1, 95 },
+            { 2, 96 },
+        };
+
+        private static readonly Dictionary<byte, byte> GroundSitPoses = new()
+        {
+            { 0, 52 },
+            { 1, 97 },
+            { 2, 98 },
+            { 3, 117 },
+        };
+
+        private static int StateFromPose(int pose, bool weaponDrawn)
+        {
+            return pose switch
+            {
+                0   => weaponDrawn ? 0 : 1,
+                50  => 2,
+                52  => 3,
+                88  => 4,
+                91  => 0,
+                92  => 0,
+                93  => 1,
+                95  => 2,
+                96  => 2,
+                97  => 3,
+                98  => 3,
+                99  => 4,
+                100 => 4,
+                107 => 0,
+                108 => 0,
+                117 => 3,
+                218 => 0,
+                219 => 0,
+                _   => 0,
+            };
+        }
+
 
         public const byte DefaultPose   = byte.MaxValue;
         public const byte UnchangedPose = byte.MaxValue - 1;
@@ -48,10 +115,33 @@ namespace AutoVisor.Managers
         public byte DefaultDozePose
             => _defaultPoses[4];
 
+        public IntPtr PlayerPointer { get; set; } = IntPtr.Zero;
+        public bool   WeaponDrawn   { get; set; } = false;
+
+        private unsafe int GetPersistentEmote()
+        {
+            const int persistentEmoteOffset = 0xE94;
+            var       ptr                   = (byte*) PlayerPointer.ToPointer();
+            return *(int*) (ptr + persistentEmoteOffset);
+        }
+
+        private unsafe int GetCPoseActorState()
+        {
+            const int cPoseOffset = 0xEA1;
+            var       ptr         = (byte*) PlayerPointer.ToPointer();
+            return *(ptr + cPoseOffset);
+        }
+
         private unsafe byte GetPose(int which)
         {
             var ptr = (byte*) _cposeSettings.Address.ToPointer();
             return ptr[which];
+        }
+
+        private unsafe void WritePose(int which, byte pose)
+        {
+            var ptr = (byte*)_cposeSettings.Address.ToPointer();
+            ptr[which] = pose;
         }
 
         public byte StandingPose
@@ -69,51 +159,58 @@ namespace AutoVisor.Managers
         public byte DozePose
             => GetPose(4);
 
-
-        private int  _poseTypeBeingSet = -1;
-
-        private void SetNextPoseTarget(int which)
-        {
-            _poseTypeBeingSet = which;
-        }
-
         public void SetPose(int which, byte toWhat)
         {
-            if (_cposeStateHook == null || _cposeSettings.Address == IntPtr.Zero)
-            {
-                PluginLog.Error("Game hooks missing.");
-                return;
-            }
-
-            if (which < 0 || which > NumPoses.Length)
-            {
-                PluginLog.Error($"Invalid pose type {which} requested.");
-                return;
-            }
-
             if (toWhat == UnchangedPose)
                 return;
 
             if (toWhat == DefaultPose)
+            {
                 toWhat = _defaultPoses[which];
+            }
             else if (toWhat >= NumPoses[which])
             {
                 PluginLog.Error($"Higher pose requested than possible for {which}: {toWhat} / {NumPoses[which]}.");
                 return;
             }
 
-            if (toWhat == GetPose(which))
+            if (PlayerPointer == IntPtr.Zero)
                 return;
 
-            Task.Run(() =>
+            var currentEmote = GetPersistentEmote();
+            var currentState = StateFromPose(currentEmote, WeaponDrawn);
+            var pose         = GetPose(which);
+            if (currentState == which)
             {
-                do
+                if (toWhat == GetCPoseActorState())
                 {
-                    _poseTypeBeingSet = which;
-                    _commandManager.Execute("/cpose");
-                    Task.Delay(24);
-                } while (toWhat != GetPose(which));
-            });
+                    if (pose != toWhat)
+                    {
+                        WritePose(which, toWhat);
+                        PluginLog.Verbose("Wrote {What} to state {State} because it was {Pose}. (currentState == which)", toWhat, which, pose);
+                    }
+                }
+                else
+                {
+                    Task.Run(() =>
+                    {
+                        var i = 0;
+                        do
+                        {
+                            PluginLog.Verbose("Execute /cpose to get from {State} to {What}.", GetCPoseActorState(), toWhat);
+                            _commandManager.Execute("/cpose");
+                            Task.Delay(24);
+                        } while (toWhat != GetCPoseActorState() && i++ < 8);
+                        if (i == 8)
+                            PluginLog.Error("Could not change pose.");
+                    });
+                }
+            }
+            else if (pose != toWhat)
+            {
+                WritePose(which, toWhat);
+                PluginLog.Verbose("Wrote {What} to state {State} because it was {Pose}. (currentState != which)", toWhat, which, pose);
+            }
         }
 
 
@@ -160,27 +257,6 @@ namespace AutoVisor.Managers
             _cposeSettings  = new CPoseSettings(_pi.TargetModuleScanner);
 
             ResetDefaultPoses();
-
-            _cposeStateHook = new GetCurrentPoseState(_pi.TargetModuleScanner).CreateHook(CposeStateDetour, this);
-        }
-
-        private ulong CposeStateDetour(ulong unk)
-        {
-            var ret = _cposeStateHook!.Original(unk);
-            PluginLog.Verbose("Current cpose state, parameter {Param}, Value {Ret}, setting to {Target}.", unk, ret, _poseTypeBeingSet);
-            if (_poseTypeBeingSet != -1)
-            {
-                ret               = (ulong) _poseTypeBeingSet;
-                _poseTypeBeingSet = -1;
-            }
-
-            return ret;
-        }
-
-        public void Dispose()
-        {
-            _cposeStateHook?.Disable();
-            _cposeStateHook?.Dispose();
         }
     }
 }
