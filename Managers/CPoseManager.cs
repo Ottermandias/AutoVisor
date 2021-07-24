@@ -257,8 +257,6 @@ namespace AutoVisor.Managers
             _defaultPoses[4] = GetPose(4);
         }
 
-        private readonly Hook<CurrentPoseStateDelegate>? _cposeStateHook;
-
         public CPoseManager(DalamudPluginInterface pi, CommandManager commandManager)
         {
             _pi             = pi;
