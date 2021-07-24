@@ -116,7 +116,7 @@ namespace AutoVisor.GUI
         {
             var tmp = _config.WaitFrames;
             ImGui.SetNextItemWidth(50);
-            if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0) && _config.WaitFrames != tmp)
+            if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0) && _config.WaitFrames != tmp && _config.WaitFrames > 0 && _config.WaitFrames < 3001)
             {
                 _config.WaitFrames = tmp;
                 Save();
@@ -126,7 +126,8 @@ namespace AutoVisor.GUI
                 ImGui.SetTooltip(
                     "The number of frames to wait after a job change or visor toggle before checking state again.\n"
                   + "Keep this as is if you are not sure what it does.\n"
-                  + "Otherwise, set it as low as possible and as high as necessary.");
+                  + "Otherwise, set it as low as possible and as high as necessary.\n"
+                  + "Valid range is [1, 3000].");
         }
 
         private ImGuiRaii? DrawTableHeader(int type)
