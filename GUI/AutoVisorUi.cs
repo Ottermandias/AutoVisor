@@ -112,6 +112,23 @@ namespace AutoVisor.GUI
             Save();
         }
 
+        private void DrawWaitFrameInput()
+        {
+            var tmp = _config.WaitFrames;
+            ImGui.SetNextItemWidth(50);
+            if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0) && _config.WaitFrames != tmp)
+            {
+                _config.WaitFrames = tmp;
+                Save();
+            }
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(
+                    "The number of frames to wait after a job change or visor toggle before checking state again.\n"
+                  + "Keep this as is if you are not sure what it does.\n"
+                  + "Otherwise, set it as low as possible and as high as necessary.");
+        }
+
         private ImGuiRaii? DrawTableHeader(int type)
         {
             const ImGuiTableFlags flags = ImGuiTableFlags.Hideable
@@ -198,6 +215,7 @@ namespace AutoVisor.GUI
                             jobSettings.DozingPose = value;
                             break;
                     }
+
                     settings.PerJob[job] = jobSettings;
                     Save();
                 }
@@ -438,13 +456,17 @@ namespace AutoVisor.GUI
             if (!Visible)
                 return;
 
-            ImGui.SetNextWindowSizeConstraints(new Vector2(980, 500) * ImGui.GetIO().FontGlobalScale, new Vector2(4000, 4000));
+            ImGui.SetNextWindowSizeConstraints(
+                new Vector2(980, 500) * ImGui.GetIO().FontGlobalScale + ImGui.GetStyle().ScrollbarSize * Vector2.UnitX,
+                new Vector2(4000, 4000));
             if (!ImGui.Begin(_configHeader, ref Visible))
                 return;
 
             try
             {
                 DrawEnabledCheckbox();
+                ImGui.SameLine();
+                DrawWaitFrameInput();
                 ImGui.SameLine();
                 DrawPlayerAdd();
 

@@ -70,6 +70,8 @@ namespace AutoVisor.Managers
         private          bool   _visorIsEnabled;
         private          bool   _visorEnabled;
         private          bool?  _visorToggleEntered = null;
+        private          int    _visorToggleTimer   = 0;
+        private          int    _waitTimer          = 0;
 
         private bool _visorIsToggled;
         // private bool   _visorIsAnimated;
@@ -213,11 +215,19 @@ namespace AutoVisor.Managers
             UpdateName(player);
             UpdateJob(player);
 
+            if (_waitTimer > 0)
+            {
+                --_waitTimer;
+                return;
+            }
+
             if (_visorToggleEntered != null)
             {
                 UpdateFlags(player);
-                if (_visorIsToggled == _visorToggleEntered)
+                if (_visorIsToggled == _visorToggleEntered || _visorToggleTimer <= 0)
                     _visorToggleEntered = null;
+                else
+                    --_visorToggleTimer;
             }
 
             for (var i = 0; i < NumStateLongs; ++i)
@@ -320,6 +330,7 @@ namespace AutoVisor.Managers
             if (on == _weaponIsShown)
                 return;
 
+            PluginLog.Debug("{What} Weapon Slot for {Name} on {Job}.", on ? "Enabled" : "Disabled", _currentName, _currentJob);
             _commandManager.Execute($"{HideWeaponCommand} {(on ? OnString : OffString)}");
             _weaponIsShown = on;
         }
@@ -331,12 +342,14 @@ namespace AutoVisor.Managers
 
             if (on)
             {
+                PluginLog.Debug("Enabled Hat Slot for {Name} on {Job}.", _currentName, _currentJob);
                 _commandManager.Execute($"{HideHatCommand} {OnString}");
                 _hatIsShown   = true;
                 _visorEnabled = _visorIsEnabled;
             }
             else
             {
+                PluginLog.Debug("Disabled Hat Slot for {Name} on {Job}.", _currentName, _currentJob);
                 _commandManager.Execute($"{HideHatCommand} {OffString}");
                 _hatIsShown   = false;
                 _visorEnabled = false;
@@ -348,9 +361,11 @@ namespace AutoVisor.Managers
             if (!_visorEnabled || on == _visorIsToggled || on == _visorToggleEntered)
                 return;
 
+            PluginLog.Debug("Toggled Visor for {Name} on {Job}.", _currentName, _currentJob);
             _commandManager.Execute(VisorCommand);
             _visorIsToggled     = on;
             _visorToggleEntered = on;
+            _visorToggleTimer   = _config.WaitFrames;
         }
 
         private IntPtr Player()
@@ -403,6 +418,7 @@ namespace AutoVisor.Managers
             ResetState();
             _currentJob = (Job) Marshal.ReadByte(actor + ActorJobOffset);
             UpdatePoses(actor);
+            _waitTimer = _config.WaitFrames;
         }
 
         private bool UpdateRace(IntPtr actor)

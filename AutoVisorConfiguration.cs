@@ -133,8 +133,9 @@ namespace AutoVisor
     [Serializable]
     public class AutoVisorConfiguration : IPluginConfiguration
     {
-        public int                              Version { get; set; } = 2;
-        public bool                             Enabled { get; set; } = true;
-        public Dictionary<string, PlayerConfig> States  { get; set; } = new();
+        public int                              Version    { get; set; } = 2;
+        public bool                             Enabled    { get; set; } = true;
+        public int                              WaitFrames { get; set; } = 30;
+        public Dictionary<string, PlayerConfig> States     { get; set; } = new();
     }
 }
