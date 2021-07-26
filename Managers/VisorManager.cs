@@ -215,12 +215,6 @@ namespace AutoVisor.Managers
             UpdateName(player);
             UpdateJob(player);
 
-            if (_waitTimer > 0)
-            {
-                --_waitTimer;
-                return;
-            }
-
             if (_visorToggleEntered != null)
             {
                 UpdateFlags(player);
@@ -228,6 +222,12 @@ namespace AutoVisor.Managers
                     _visorToggleEntered = null;
                 else
                     --_visorToggleTimer;
+            }
+
+            if (_waitTimer > 0)
+            {
+                --_waitTimer;
+                return;
             }
 
             for (var i = 0; i < NumStateLongs; ++i)
@@ -284,7 +284,7 @@ namespace AutoVisor.Managers
                 if (!visor.HideHatSet.HasFlag(flag))
                     return false;
 
-                ToggleHat(visor.HideHatState.HasFlag(flag));
+                ToggleHat(visor.HideHatState.HasFlag(flag), flag);
                 return true;
             }
 
@@ -293,7 +293,7 @@ namespace AutoVisor.Managers
                 if (!visor.VisorSet.HasFlag(flag))
                     return false;
 
-                ToggleVisor(visor.VisorState.HasFlag(flag));
+                ToggleVisor(visor.VisorState.HasFlag(flag), flag);
                 return true;
             }
 
@@ -302,7 +302,7 @@ namespace AutoVisor.Managers
                 if (!ValidStatesForWeapon[flag] || !visor.HideWeaponSet.HasFlag(flag))
                     return false;
 
-                ToggleWeapon(visor.HideWeaponState.HasFlag(flag));
+                ToggleWeapon(visor.HideWeaponState.HasFlag(flag), flag);
                 return true;
             }
 
@@ -325,47 +325,50 @@ namespace AutoVisor.Managers
             }
         }
 
-        private void ToggleWeapon(bool on)
+        private void ToggleWeapon(bool on, VisorChangeStates flag)
         {
             if (on == _weaponIsShown)
                 return;
 
-            PluginLog.Debug("{What} Weapon Slot for {Name} on {Job}.", on ? "Enabled" : "Disabled", _currentName, _currentJob);
+            PluginLog.Debug("{What} Weapon Slot for {Name} on {Job} due to {Flag}.", on ? "Enabled" : "Disabled", _currentName, _currentJob, flag);
             _commandManager.Execute($"{HideWeaponCommand} {(on ? OnString : OffString)}");
             _weaponIsShown = on;
+            _waitTimer     = (_config.WaitFrames + 1) / 2;
         }
 
-        private void ToggleHat(bool on)
+        private void ToggleHat(bool on, VisorChangeStates flag)
         {
             if (on == _hatIsShown)
                 return;
 
             if (on)
             {
-                PluginLog.Debug("Enabled Hat Slot for {Name} on {Job}.", _currentName, _currentJob);
+                PluginLog.Debug("Enabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
                 _commandManager.Execute($"{HideHatCommand} {OnString}");
                 _hatIsShown   = true;
                 _visorEnabled = _visorIsEnabled;
             }
             else
             {
-                PluginLog.Debug("Disabled Hat Slot for {Name} on {Job}.", _currentName, _currentJob);
+                PluginLog.Debug("Disabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
                 _commandManager.Execute($"{HideHatCommand} {OffString}");
                 _hatIsShown   = false;
                 _visorEnabled = false;
             }
+            _waitTimer = (_config.WaitFrames + 1) / 2;
         }
 
-        private void ToggleVisor(bool on)
+        private void ToggleVisor(bool on, VisorChangeStates flag)
         {
             if (!_visorEnabled || on == _visorIsToggled || on == _visorToggleEntered)
                 return;
 
-            PluginLog.Debug("Toggled Visor for {Name} on {Job}.", _currentName, _currentJob);
+            PluginLog.Debug("Toggled Visor for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
             _commandManager.Execute(VisorCommand);
             _visorIsToggled     = on;
             _visorToggleEntered = on;
             _visorToggleTimer   = _config.WaitFrames;
+            _waitTimer          = (_config.WaitFrames + 1) / 2;
         }
 
         private IntPtr Player()
