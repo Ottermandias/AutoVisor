@@ -192,7 +192,7 @@ namespace AutoVisor.Managers
 
         private unsafe void UpdateWeaponDrawn(IntPtr player)
         {
-            var weaponDrawn = *((byte*)player.ToPointer() + ActorWeaponDrawnOffset);
+            var weaponDrawn = *((byte*) player.ToPointer() + ActorWeaponDrawnOffset);
             if (weaponDrawn == _currentWeaponDrawn)
                 return;
 
@@ -330,7 +330,8 @@ namespace AutoVisor.Managers
             if (on == _weaponIsShown)
                 return;
 
-            PluginLog.Debug("{What} Weapon Slot for {Name} on {Job} due to {Flag}.", on ? "Enabled" : "Disabled", _currentName, _currentJob, flag);
+            PluginLog.Debug("{What} Weapon Slot for {Name} on {Job} due to {Flag}.", on ? "Enabled" : "Disabled", _currentName, _currentJob,
+                flag);
             _commandManager.Execute($"{HideWeaponCommand} {(on ? OnString : OffString)}");
             _weaponIsShown = on;
             _waitTimer     = (_config.WaitFrames + 1) / 2;
@@ -355,6 +356,7 @@ namespace AutoVisor.Managers
                 _hatIsShown   = false;
                 _visorEnabled = false;
             }
+
             _waitTimer = (_config.WaitFrames + 1) / 2;
         }
 
@@ -374,7 +376,7 @@ namespace AutoVisor.Managers
         private IntPtr Player()
         {
             var player = Marshal.ReadIntPtr(_actorTablePtr);
-            _visorEnabled       = player != IntPtr.Zero;
+            _visorEnabled              = player != IntPtr.Zero;
             CPoseManager.PlayerPointer = player;
             return player;
         }
@@ -435,25 +437,24 @@ namespace AutoVisor.Managers
         private bool UpdateVisor()
         {
             if (_gmpFile == null)
-                return true;
+                _visorIsEnabled = true;
+            else
+                _visorIsEnabled = (_gmpFile.GetEntry(_currentHatModelId) & GimmickVisorEnabledFlag) == GimmickVisorEnabledFlag;
 
-            var gmpEntry = _gmpFile.GetEntry(_currentHatModelId);
-            // _visorIsAnimated = ( gmpEntry & GimmickVisorAnimatedFlag ) == GimmickVisorAnimatedFlag;
-            _visorIsEnabled = (gmpEntry & GimmickVisorEnabledFlag) == GimmickVisorEnabledFlag;
             return _visorIsEnabled;
         }
 
         private bool UpdateUsable()
         {
             if (_eqpFile == null)
-                return true;
-
-            _hatIsUseable = _currentRace switch
-            {
-                Race.Hrothgar => (_eqpFile.GetEntry(_currentHatModelId) & EqpHatHrothgarFlag) == EqpHatHrothgarFlag,
-                Race.Viera    => (_eqpFile.GetEntry(_currentHatModelId) & EqpHatVieraFlag) == EqpHatVieraFlag,
-                _             => true,
-            };
+                _hatIsUseable = true;
+            else
+                _hatIsUseable = _currentRace switch
+                {
+                    Race.Hrothgar => (_eqpFile.GetEntry(_currentHatModelId) & EqpHatHrothgarFlag) == EqpHatHrothgarFlag,
+                    Race.Viera    => (_eqpFile.GetEntry(_currentHatModelId) & EqpHatVieraFlag) == EqpHatVieraFlag,
+                    _             => true,
+                };
 
             return _hatIsUseable;
         }
