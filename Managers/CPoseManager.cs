@@ -73,7 +73,7 @@ namespace AutoVisor.Managers
             { 3, 117 },
         };
 
-        private static int StateFromPose(int pose, bool weaponDrawn)
+        private static int StateFromPose(ushort pose, bool weaponDrawn)
         {
             return pose switch
             {
@@ -96,6 +96,17 @@ namespace AutoVisor.Managers
                 218 => 0,
                 219 => 0,
                 _   => 0,
+            };
+        }
+
+        private static byte TranslateState(byte state, bool weaponDrawn)
+        {
+            return state switch
+            {
+                1 => 3,
+                2 => 2,
+                3 => 4,
+                _ => (byte)(weaponDrawn ? 1 : 0),
             };
         }
 
@@ -127,11 +138,18 @@ namespace AutoVisor.Managers
         public IntPtr PlayerPointer { get; set; } = IntPtr.Zero;
         public bool   WeaponDrawn   { get; set; } = false;
 
-        private unsafe int GetPersistentEmote()
+        private unsafe byte GetSeatingState()
+        {
+            const int seatingStateOffset = 0x197D;
+            var       ptr                = (byte*)PlayerPointer.ToPointer();
+            return *(ptr + seatingStateOffset);
+        }
+
+        private unsafe ushort GetPersistentEmote()
         {
             const int persistentEmoteOffset = 0xE94;
             var       ptr                   = (byte*) PlayerPointer.ToPointer();
-            return *(int*) (ptr + persistentEmoteOffset);
+            return *(ushort*) (ptr + persistentEmoteOffset);
         }
 
         private unsafe int GetCPoseActorState()
@@ -186,8 +204,8 @@ namespace AutoVisor.Managers
             if (PlayerPointer == IntPtr.Zero)
                 return;
 
-            var currentEmote = GetPersistentEmote();
-            var currentState = StateFromPose(currentEmote, WeaponDrawn);
+            var currentState = GetSeatingState();
+            currentState = TranslateState(currentState, WeaponDrawn);
             var pose         = GetPose(which);
             if (currentState == which)
             {
