@@ -79,7 +79,7 @@ namespace AutoVisor.Classes
             using var bw       = new BinaryWriter(mem);
 
             foreach (var parameter in _blocks.Where(array => array != null)
-                .SelectMany(array => array))
+                .SelectMany(array => array!))
                 bw.Write(parameter);
 
             return mem.ToArray();

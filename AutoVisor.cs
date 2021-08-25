@@ -16,17 +16,15 @@ namespace AutoVisor
 
         public static string Version = "";
 
-        private DalamudPluginInterface? _pluginInterface;
-        private AutoVisorConfiguration? _configuration;
-        private CommandManager?         _commandManager;
-        private AutoVisorUi?            _ui;
-        public  VisorManager?           VisorManager;
-
+        public static    AutoVisorConfiguration Config = null!;
+        public readonly  VisorManager           VisorManager;
+        private readonly CommandManager         _commandManager;
+        private readonly AutoVisorUi            _ui;
 
         private bool VerifySettingIntegrity()
         {
             var changes = false;
-            foreach (var player in _configuration!.States.Values)
+            foreach (var player in Config!.States.Values)
             {
                 if (player.PerJob.Any(kvp => kvp.Key > Job.DNC))
                 {
@@ -47,17 +45,17 @@ namespace AutoVisor
             update |= VerifySettingIntegrity();
 
             if (update)
-                _pluginInterface!.SavePluginConfig(_configuration);
+                Config.Save();
         }
 
         private bool UpdateConfigV1To2()
         {
-            if (_configuration!.Version == 1)
+            if (Config.Version == 1)
             {
-                foreach (var player in _configuration!.States.Values)
+                foreach (var player in Config.States.Values)
                     player.PerJob = player.PerJob.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ResetPoses());
 
-                _configuration.Version = 2;
+                Config.Version = 2;
                 return true;
             }
 
@@ -66,53 +64,49 @@ namespace AutoVisor
 
         private const string PPoseHelp = "Use with [Stand, Weapon, Sit, GroundSit, Doze] [#] to set specific pose.";
 
-        public void Initialize(DalamudPluginInterface pluginInterface)
+        public AutoVisor(DalamudPluginInterface pluginInterface)
         {
-            _pluginInterface = pluginInterface;
-            Version          = Assembly.GetExecutingAssembly()?.GetName().Version.ToString() ?? "";
-            _commandManager  = new CommandManager(pluginInterface);
-            _configuration   = pluginInterface.GetPluginConfig() as AutoVisorConfiguration ?? new AutoVisorConfiguration();
+            Dalamud.Initialize(pluginInterface);
+            Version         = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
+            _commandManager = new CommandManager(Dalamud.SigScanner);
+            Config          = AutoVisorConfiguration.Load();
             CheckSettings();
-            VisorManager     = new VisorManager(_pluginInterface, _configuration, _commandManager);
-            _ui              = new AutoVisorUi(this, _pluginInterface, _configuration);
+            VisorManager = new VisorManager(_commandManager);
+            _ui          = new AutoVisorUi(this);
 
-            if (_configuration.Enabled)
+            if (Config.Enabled)
                 VisorManager.Activate();
 
-            _pluginInterface!.CommandManager.AddHandler("/autovisor", new CommandInfo(OnAutoVisor)
+            Dalamud.Commands.AddHandler("/autovisor", new CommandInfo(OnAutoVisor)
             {
                 HelpMessage = "Use to open the graphical interface.",
                 ShowInHelp  = true,
             });
 
-            _pluginInterface!.CommandManager.AddHandler("/ppose", new CommandInfo(OnPPose)
+            Dalamud.Commands.AddHandler("/ppose", new CommandInfo(OnPPose)
             {
                 HelpMessage = PPoseHelp,
                 ShowInHelp  = true,
             });
 
-            _pluginInterface!.UiBuilder.OnBuildUi     += _ui.Draw;
-            _pluginInterface.UiBuilder.OnOpenConfigUi += OnConfigCommandHandler;
+            Dalamud.PluginInterface.UiBuilder.Draw         += _ui.Draw;
+            Dalamud.PluginInterface.UiBuilder.OpenConfigUi += OnConfigCommandHandler;
         }
 
         public void Dispose()
         {
-            VisorManager?.Dispose();
-            _pluginInterface!.SavePluginConfig(_configuration);
-            _pluginInterface!.CommandManager.RemoveHandler("/autovisor");
-            _pluginInterface!.CommandManager.RemoveHandler("/ppose");
-            _pluginInterface!.Dispose();
+            VisorManager.Dispose();
+            Dalamud.Commands.RemoveHandler("/autovisor");
+            Dalamud.Commands.RemoveHandler("/ppose");
         }
 
         private void OnAutoVisor(string command, string _)
             => _ui!.Visible = !_ui.Visible;
 
-        private void OnConfigCommandHandler(object _, object _2)
-        {
-            _ui!.Visible = true;
-        }
+        private void OnConfigCommandHandler()
+            => _ui!.Visible = true;
 
-        public readonly string[] PoseTypes = new string[]
+        public readonly string[] PoseTypes =
         {
             "Stand",
             "Weapon",
@@ -123,31 +117,35 @@ namespace AutoVisor
 
         private void OnPPose(string command, string arguments)
         {
-            var chat = _pluginInterface!.Framework.Gui.Chat;
             var args = arguments.Split();
             if (args.Length < 2)
             {
-                chat.Print(PPoseHelp);
+                Dalamud.Chat.Print(PPoseHelp);
                 return;
             }
 
-            int  whichPoseType;
+            int whichPoseType;
             switch (args[0].ToLowerInvariant())
             {
-                case "stand":     whichPoseType = 0;
+                case "stand":
+                    whichPoseType = 0;
                     break;
-                case "weapon":    whichPoseType = 1;
+                case "weapon":
+                    whichPoseType = 1;
                     break;
-                case "sit":       whichPoseType = 2;
+                case "sit":
+                    whichPoseType = 2;
                     break;
-                case "groundsit": whichPoseType = 3;
+                case "groundsit":
+                    whichPoseType = 3;
                     break;
-                case "doze":      whichPoseType = 4;
+                case "doze":
+                    whichPoseType = 4;
                     break;
                 default:
                     if (!int.TryParse(args[0], out whichPoseType) || whichPoseType < 0 || whichPoseType > 4)
                     {
-                        chat.Print(PPoseHelp);
+                        Dalamud.Chat.Print(PPoseHelp);
                         return;
                     }
 
@@ -156,17 +154,19 @@ namespace AutoVisor
 
             if (!byte.TryParse(args[1], out var whichPose))
             {
-                chat.Print(PPoseHelp);
+                Dalamud.Chat.Print(PPoseHelp);
                 return;
             }
+
             if (whichPose == 0 || whichPose > CPoseManager.NumPoses[whichPoseType])
             {
-                chat.PrintError($"Pose {whichPose} for {PoseTypes[whichPoseType]} does not exist, only {CPoseManager.NumPoses[whichPoseType]} poses are supported.");
+                Dalamud.Chat.PrintError(
+                    $"Pose {whichPose} for {PoseTypes[whichPoseType]} does not exist, only {CPoseManager.NumPoses[whichPoseType]} poses are supported.");
                 return;
             }
 
             VisorManager!.CPoseManager.SetPose(whichPoseType, (byte) (whichPose - 1));
-            chat.Print($"Set {PoseTypes[whichPoseType]} pose to {whichPose}.");
+            Dalamud.Chat.Print($"Set {PoseTypes[whichPoseType]} pose to {whichPose}.");
         }
     }
 }

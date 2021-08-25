@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using AutoVisor.Classes;
-using Dalamud.Game.ClientState;
-using Dalamud.Game.Internal;
-using Dalamud.Plugin;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Logging;
 
 namespace AutoVisor.Managers
 {
@@ -63,32 +63,30 @@ namespace AutoVisor.Managers
         private          ushort _currentHatModelId;
         private          Job    _currentJob;
         private          Race   _currentRace;
-        private          string _currentName = "";
+        private          string _currentName = string.Empty;
         private          bool   _hatIsShown;
         private          bool   _weaponIsShown;
         private          bool   _hatIsUseable;
         private          bool   _visorIsEnabled;
         private          bool   _visorEnabled;
-        private          bool?  _visorToggleEntered = null;
-        private          int    _visorToggleTimer   = 0;
-        private          int    _waitTimer          = 0;
+        private          bool?  _visorToggleEntered;
+        private          int    _visorToggleTimer;
+        private          int    _waitTimer;
 
         private bool _visorIsToggled;
         // private bool   _visorIsAnimated;
 
 
-        private readonly DalamudPluginInterface _pi;
-        private readonly AutoVisorConfiguration _config;
-        private readonly CommandManager         _commandManager;
-        private readonly EqpFile?               _eqpFile;
-        private readonly EqpFile?               _gmpFile;
-        public readonly  CPoseManager           CPoseManager;
+        private readonly CommandManager _commandManager;
+        private readonly EqpFile?       _eqpFile;
+        private readonly EqpFile?       _gmpFile;
+        public readonly  CPoseManager   CPoseManager;
 
-        private static EqpFile? ObtainEqpFile(DalamudPluginInterface pi)
+        private static EqpFile? ObtainEqpFile()
         {
             try
             {
-                return new EqpFile(pi.Data.GetFile(EquipmentParameters));
+                return new EqpFile(Dalamud.GameData.GetFile(EquipmentParameters) ?? throw new Exception("Not found."));
             }
             catch (Exception e)
             {
@@ -97,11 +95,11 @@ namespace AutoVisor.Managers
             }
         }
 
-        private static EqpFile? ObtainGmpFile(DalamudPluginInterface pi)
+        private static EqpFile? ObtainGmpFile()
         {
             try
             {
-                return new EqpFile(pi.Data.GetFile(GimmickParameters));
+                return new EqpFile(Dalamud.GameData.GetFile(GimmickParameters) ?? throw new Exception("Not found."));
             }
             catch (Exception e)
             {
@@ -110,23 +108,21 @@ namespace AutoVisor.Managers
             }
         }
 
-        public VisorManager(DalamudPluginInterface pi, AutoVisorConfiguration config, CommandManager commandManager)
-            : this(pi, config, commandManager, ObtainEqpFile(pi), ObtainGmpFile(pi))
+        public VisorManager(CommandManager commandManager)
+            : this(commandManager, ObtainEqpFile(), ObtainGmpFile())
         { }
 
-        public VisorManager(DalamudPluginInterface pi, AutoVisorConfiguration config, CommandManager commandManager, EqpFile? eqp, EqpFile? gmp)
+        public VisorManager(CommandManager commandManager, EqpFile? eqp, EqpFile? gmp)
         {
-            _pi             = pi;
-            _config         = config;
             _commandManager = commandManager;
             _eqpFile        = eqp;
             _gmpFile        = gmp;
-            CPoseManager    = new CPoseManager(_pi, _commandManager);
+            CPoseManager    = new CPoseManager(_commandManager);
             // Some hacky shit to not resolve the address again.
-            _conditionPtr = BaseAddressResolver.DebugScannedValues["ClientStateAddressResolver"]
-                .Find(kvp => kvp.Item1 == "ConditionFlags").Item2;
-            _actorTablePtr = BaseAddressResolver.DebugScannedValues["ClientStateAddressResolver"]
-                .Find(kvp => kvp.Item1 == "ActorTable").Item2;
+            _conditionPtr = (IntPtr) Dalamud.Conditions.GetType()
+                    .GetProperty("ConditionArrayBase", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(Dalamud.Conditions, null)!;
+            _actorTablePtr = Dalamud.Objects.Address;
         }
 
         public void Dispose()
@@ -139,8 +135,8 @@ namespace AutoVisor.Managers
             if (IsActive)
                 return;
 
-            IsActive                    =  true;
-            _pi.Framework.OnUpdateEvent += OnFrameworkUpdate;
+            IsActive                 =  true;
+            Dalamud.Framework.Update += OnFrameworkUpdate;
         }
 
         public void Deactivate()
@@ -148,8 +144,8 @@ namespace AutoVisor.Managers
             if (!IsActive)
                 return;
 
-            IsActive                    =  false;
-            _pi.Framework.OnUpdateEvent -= OnFrameworkUpdate;
+            IsActive                 =  false;
+            Dalamud.Framework.Update -= OnFrameworkUpdate;
         }
 
         public void ResetState()
@@ -158,7 +154,7 @@ namespace AutoVisor.Managers
             _currentJob = 0;
         }
 
-        private static readonly ulong[] RelevantConditionsBitmask = new ulong[NumStateLongs]
+        private static readonly ulong[] RelevantConditionsBitmask =
         {
             0x0001010100000100,
             0x0000000000000000,
@@ -174,7 +170,7 @@ namespace AutoVisor.Managers
             0x0001000000000000,
         };
 
-        private static readonly ulong[] WaitStateConditionsBitmask = new ulong[NumStateLongs]
+        private static readonly ulong[] WaitStateConditionsBitmask =
         {
             0x0000000000FF00FF,
             0x0000000000000000,
@@ -238,7 +234,6 @@ namespace AutoVisor.Managers
                     _currentState[i] = condition;
                     for (; i < NumStateLongs; ++i)
                         _currentState[i] = RelevantConditionsBitmask[i] & *(ulong*) (_conditionPtr + 8 * i).ToPointer();
-                    ;
                     break;
                 }
 
@@ -246,14 +241,14 @@ namespace AutoVisor.Managers
                     UpdateWeaponDrawn(player);
             }
 
-            if (!_visorEnabled || !_config.States.TryGetValue(_currentName, out var config) || !config.Enabled)
+            if (!_visorEnabled || !AutoVisor.Config.States.TryGetValue(_currentName, out var config) || !config.Enabled)
                 return;
 
             UpdateActor(player);
             if (!config.PerJob.TryGetValue(_currentJob, out var flags))
                 flags = config.PerJob[Job.Default];
 
-            HandleState(flags, _pi.ClientState.Condition);
+            HandleState(flags, Dalamud.Conditions);
         }
 
         private static readonly (ConditionFlag, VisorChangeStates)[] Conditions = new (ConditionFlag, VisorChangeStates)[]
@@ -334,7 +329,7 @@ namespace AutoVisor.Managers
                 flag);
             _commandManager.Execute($"{HideWeaponCommand} {(on ? OnString : OffString)}");
             _weaponIsShown = on;
-            _waitTimer     = (_config.WaitFrames + 1) / 2;
+            _waitTimer     = (AutoVisor.Config.WaitFrames + 1) / 2;
         }
 
         private void ToggleHat(bool on, VisorChangeStates flag)
@@ -357,7 +352,7 @@ namespace AutoVisor.Managers
                 _visorEnabled = false;
             }
 
-            _waitTimer = (_config.WaitFrames + 1) / 2;
+            _waitTimer = (AutoVisor.Config.WaitFrames + 1) / 2;
         }
 
         private void ToggleVisor(bool on, VisorChangeStates flag)
@@ -369,8 +364,8 @@ namespace AutoVisor.Managers
             _commandManager.Execute(VisorCommand);
             _visorIsToggled     = on;
             _visorToggleEntered = on;
-            _visorToggleTimer   = _config.WaitFrames;
-            _waitTimer          = (_config.WaitFrames + 1) / 2;
+            _visorToggleTimer   = AutoVisor.Config.WaitFrames;
+            _waitTimer          = (AutoVisor.Config.WaitFrames + 1) / 2;
         }
 
         private IntPtr Player()
@@ -383,7 +378,7 @@ namespace AutoVisor.Managers
 
         private void UpdatePoses(IntPtr player)
         {
-            if (!_config.States.TryGetValue(_currentName, out var config))
+            if (!AutoVisor.Config.States.TryGetValue(_currentName, out var config))
                 return;
 
             if (!config.PerJob.TryGetValue(_currentJob, out var settings))
@@ -423,7 +418,7 @@ namespace AutoVisor.Managers
             ResetState();
             _currentJob = (Job) Marshal.ReadByte(actor + ActorJobOffset);
             UpdatePoses(actor);
-            _waitTimer = _config.WaitFrames;
+            _waitTimer = AutoVisor.Config.WaitFrames;
         }
 
         private bool UpdateRace(IntPtr actor)

@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 using Dalamud.Game;
-using Dalamud.Plugin;
+using Dalamud.Logging;
 
 namespace AutoVisor.SeFunctions
 {

@@ -3,7 +3,7 @@ namespace AutoVisor.Classes
     public enum Race : byte
     {
         Unknown,
-        Midlander,
+        Hyur,
         Elezen,
         Lalafell,
         Miqote,
