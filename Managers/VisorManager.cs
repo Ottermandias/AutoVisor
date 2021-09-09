@@ -118,10 +118,7 @@ namespace AutoVisor.Managers
             _eqpFile        = eqp;
             _gmpFile        = gmp;
             CPoseManager    = new CPoseManager(_commandManager);
-            // Some hacky shit to not resolve the address again.
-            _conditionPtr = (IntPtr) Dalamud.Conditions.GetType()
-                    .GetProperty("ConditionArrayBase", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(Dalamud.Conditions, null)!;
+            _conditionPtr  = Dalamud.Conditions.Address;
             _actorTablePtr = Dalamud.Objects.Address;
         }
 
