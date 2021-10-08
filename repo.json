@@ -2,7 +2,9 @@
   {
     "Author": "Ottermandias",
     "Name": "AutoVisor [T]",
-    "Description": "Automatically change visor, headslot hiding, and weapon hiding status for different player states, as well as default CPoses per job.",
+    "Punchline": "Change Visor and Stance based on State and Job.",
+    "Description": "Automatically change visor, headslot hiding, and weapon hiding status for different player states, as well as default CPose-stances per job.",
+    "Tags": [ "Visor", "Headslot", "Hat", "CPose", "Stance", "State", "Glasses" ],
     "InternalName": "AutoVisor",
     "AssemblyVersion": "1.2.0.1",
     "TestingAssemblyVersion": "1.2.0.1",
@@ -14,6 +16,7 @@
     "DownloadCount": 1,
     "LastUpdate": 1618608329,
     "DownloadLinkTesting": "https://github.com/Ottermandias/AutoVisor/raw/master/AutoVisor.zip",
-    "DownloadLinkUpdate": "https://github.com/Ottermandias/AutoVisor/raw/master/AutoVisor.zip"
+    "DownloadLinkUpdate": "https://github.com/Ottermandias/AutoVisor/raw/master/AutoVisor.zip",
+    "IconUrl": "https://raw.githubusercontent.com/Ottermandias/AutoVisor/master/images/icon.png"
   }
 ]
