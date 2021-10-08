@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Remoting.Messaging;
 using AutoVisor.Classes;
+using AutoVisor.Gui;
 using AutoVisor.Managers;
-using Dalamud.Plugin;
 using ImGuiNET;
 
 namespace AutoVisor.GUI
@@ -40,29 +39,25 @@ namespace AutoVisor.GUI
             VisorStates.Where(v => VisorManager.ValidStatesForWeapon[v]).ToArray();
 
         private static readonly string[] VisorStateWeaponNames =
-            VisorStateNames.Where((v, i) => VisorManager.ValidStatesForWeapon[VisorStates[i]]).ToArray();
+            VisorStateNames.Where((_, i) => VisorManager.ValidStatesForWeapon[VisorStates[i]]).ToArray();
 
         private readonly string                 _configHeader;
         private readonly AutoVisor              _plugin;
-        private readonly DalamudPluginInterface _pi;
-        private readonly AutoVisorConfiguration _config;
 
         public bool Visible;
 
         private readonly List<string> _players;
 
-        private int _currentPlayer = 0;
-        private int _currentJob    = 0;
+        private int _currentPlayer;
+        private int _currentJob;
 
         private Vector2 _horizontalSpace = Vector2.Zero;
 
-        public AutoVisorUi(AutoVisor plugin, DalamudPluginInterface pi, AutoVisorConfiguration config)
+        public AutoVisorUi(AutoVisor plugin)
         {
             _plugin       = plugin;
             _configHeader = AutoVisor.Version.Length > 0 ? $"{PluginName} v{AutoVisor.Version}" : PluginName;
-            _pi           = pi;
-            _config       = config;
-            _players      = _config.States.Select(kvp => kvp.Key).ToList();
+            _players      = AutoVisor.Config.States.Select(kvp => kvp.Key).ToList();
             var idx = Array.IndexOf(VisorStateNames, "Drawn");
             if (idx < 0)
                 return;
@@ -72,12 +67,12 @@ namespace AutoVisor.GUI
 
         private bool AddPlayer(PlayerConfig config)
         {
-            var name = _pi.ClientState.LocalPlayer?.Name ?? "";
-            if (name.Length == 0 || _config.States.ContainsKey(name))
+            var name = Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? "";
+            if (name.Length == 0 || AutoVisor.Config.States.ContainsKey(name))
                 return false;
 
             _players.Add(name);
-            _config.States[name] = config.Clone();
+            AutoVisor.Config.States[name] = config.Clone();
             Save();
             return true;
         }
@@ -88,23 +83,23 @@ namespace AutoVisor.GUI
         private void RemovePlayer(string name)
         {
             _players.Remove(name);
-            _config.States.Remove(name);
+            AutoVisor.Config.States.Remove(name);
             Save();
         }
 
         private void Save()
         {
-            _pi.SavePluginConfig(_config);
+            AutoVisor.Config.Save();
             _plugin.VisorManager!.ResetState();
         }
 
         private void DrawEnabledCheckbox()
         {
-            var tmp = _config.Enabled;
-            if (!ImGui.Checkbox(LabelEnabled, ref tmp) || _config.Enabled == tmp)
+            var tmp = AutoVisor.Config.Enabled;
+            if (!ImGui.Checkbox(LabelEnabled, ref tmp) || AutoVisor.Config.Enabled == tmp)
                 return;
 
-            _config.Enabled = tmp;
+            AutoVisor.Config.Enabled = tmp;
             if (tmp)
                 _plugin.VisorManager!.Activate();
             else
@@ -114,11 +109,14 @@ namespace AutoVisor.GUI
 
         private void DrawWaitFrameInput()
         {
-            var tmp = _config.WaitFrames;
+            var tmp = AutoVisor.Config.WaitFrames;
             ImGui.SetNextItemWidth(50);
-            if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0) && _config.WaitFrames != tmp && _config.WaitFrames > 0 && _config.WaitFrames < 3001)
+            if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0)
+             && AutoVisor.Config.WaitFrames != tmp
+             && AutoVisor.Config.WaitFrames > 0
+             && AutoVisor.Config.WaitFrames < 3001)
             {
-                _config.WaitFrames = tmp;
+                AutoVisor.Config.WaitFrames = tmp;
                 Save();
             }
 
@@ -228,10 +226,8 @@ namespace AutoVisor.GUI
 
         private void DrawTableContent(PlayerConfig settings, int type)
         {
-            var jobSettings = settings.PerJob.ElementAt(_currentJob);
-            var job         = jobSettings.Key;
-            var name        = JobNames[(int) jobSettings.Key];
-            var group       = jobSettings.Value;
+            var (job, group) = settings.PerJob.ElementAt(_currentJob);
+            var name = JobNames[(int) job];
 
             var (set, state, tooltip1, tooltip2) = type switch
             {
@@ -294,27 +290,27 @@ namespace AutoVisor.GUI
                     ImGui.SetTooltip(tooltip2);
 
 
-                if (tmp1 != set.HasFlag(v) || tmp2 != state.HasFlag(v))
-                {
-                    switch (type)
-                    {
-                        case 0:
-                            group.VisorSet   = tmp1 ? set | v : set & ~v;
-                            group.VisorState = tmp2 ? state | v : state & ~v;
-                            break;
-                        case 1:
-                            group.HideHatSet   = tmp1 ? set | v : set & ~v;
-                            group.HideHatState = tmp2 ? state | v : state & ~v;
-                            break;
-                        default:
-                            group.HideWeaponSet   = tmp1 ? set | v : set & ~v;
-                            group.HideWeaponState = tmp2 ? state | v : state & ~v;
-                            break;
-                    }
+                if (tmp1 == set.HasFlag(v) && tmp2 == state.HasFlag(v))
+                    continue;
 
-                    settings.PerJob[job] = group;
-                    Save();
+                switch (type)
+                {
+                    case 0:
+                        @group.VisorSet   = tmp1 ? set | v : set & ~v;
+                        @group.VisorState = tmp2 ? state | v : state & ~v;
+                        break;
+                    case 1:
+                        @group.HideHatSet   = tmp1 ? set | v : set & ~v;
+                        @group.HideHatState = tmp2 ? state | v : state & ~v;
+                        break;
+                    default:
+                        @group.HideWeaponSet   = tmp1 ? set | v : set & ~v;
+                        @group.HideWeaponState = tmp2 ? state | v : state & ~v;
+                        break;
                 }
+
+                settings.PerJob[job] = @group;
+                Save();
             }
         }
 
@@ -359,7 +355,7 @@ namespace AutoVisor.GUI
 
             ImGui.Dummy(_horizontalSpace);
 
-            var playerConfig = _config.States[name];
+            var playerConfig = AutoVisor.Config.States[name];
             var tmp          = playerConfig.Enabled;
             if (ImGui.Checkbox($"Enabled##{name}", ref tmp) && tmp != playerConfig.Enabled)
             {
@@ -379,11 +375,11 @@ namespace AutoVisor.GUI
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip($"Delete all settings for the character {name}.");
 
-            if (name != (_pi.ClientState.LocalPlayer?.Name ?? ""))
+            if (name != (Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? ""))
             {
                 ImGui.SameLine();
                 if (ImGui.Button($"Duplicate##{name}"))
-                    AddPlayer(_config.States[name]);
+                    AddPlayer(AutoVisor.Config.States[name]);
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip($"Duplicate the settings for this character to your current character.");
             }
@@ -444,8 +440,8 @@ namespace AutoVisor.GUI
 
         private void DrawPlayerAdd()
         {
-            var name = _pi.ClientState.LocalPlayer?.Name ?? "";
-            if (name.Length == 0 || _config.States.ContainsKey(name))
+            var name = Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? "";
+            if (name.Length == 0 || AutoVisor.Config.States.ContainsKey(name))
                 return;
 
             if (ImGui.Button("Add settings for this character..."))

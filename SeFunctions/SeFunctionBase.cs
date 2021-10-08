@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using Dalamud.Game;
 using Dalamud.Hooking;
-using Dalamud.Plugin;
+using Dalamud.Logging;
 
 namespace AutoVisor.SeFunctions
 {
@@ -62,7 +62,7 @@ namespace AutoVisor.SeFunctions
         {
             if (Address != IntPtr.Zero)
             {
-                var hook = new Hook<T>(Address, (T) detour);
+                var hook = new Hook<T>(Address, detour);
                 hook.Enable();
                 PluginLog.Debug($"Hooked onto {GetType().Name} at address 0x{Address.ToInt64():X16}.");
                 return hook;

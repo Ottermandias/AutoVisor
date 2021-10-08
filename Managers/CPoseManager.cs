@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using AutoVisor.SeFunctions;
-using Dalamud.Hooking;
+using Dalamud.Logging;
 using Dalamud.Plugin;
 
 namespace AutoVisor.Managers
@@ -34,6 +33,7 @@ namespace AutoVisor.Managers
             "Dozing Pose",
         };
 
+        /* This is unused now. 
         private static readonly Dictionary<byte, byte> StandPoses = new()
         {
             { 0, 0 },
@@ -98,6 +98,7 @@ namespace AutoVisor.Managers
                 _   => 0,
             };
         }
+        */
 
         private static byte TranslateState(byte state, bool weaponDrawn)
         {
@@ -114,8 +115,7 @@ namespace AutoVisor.Managers
         public const byte DefaultPose   = byte.MaxValue;
         public const byte UnchangedPose = byte.MaxValue - 1;
 
-        private readonly DalamudPluginInterface _pi;
-        private readonly CPoseSettings          _cposeSettings;
+        private readonly CPoseSettings          _cPoseSettings;
         private readonly CommandManager         _commandManager;
 
         private readonly byte[] _defaultPoses = new byte[5];
@@ -134,6 +134,36 @@ namespace AutoVisor.Managers
 
         public byte DefaultDozePose
             => _defaultPoses[4];
+
+        public byte StandingPose
+            => GetPose(0);
+
+        public byte WeaponDrawnPose
+            => GetPose(1);
+
+        public byte SitPose
+            => GetPose(2);
+
+        public byte GroundSitPose
+            => GetPose(3);
+
+        public byte DozePose
+            => GetPose(4);
+
+        public void SetStandingPose(byte pose)
+            => SetPose(0, pose);
+
+        public void SetWeaponDrawnPose(byte pose)
+            => SetPose(1, pose);
+
+        public void SetSitPose(byte pose)
+            => SetPose(2, pose);
+
+        public void SetGroundSitPose(byte pose)
+            => SetPose(3, pose);
+
+        public void SetDozePose(byte pose)
+            => SetPose(4, pose);
 
         public IntPtr PlayerPointer { get; set; } = IntPtr.Zero;
         public bool   WeaponDrawn   { get; set; } = false;
@@ -161,30 +191,15 @@ namespace AutoVisor.Managers
 
         private unsafe byte GetPose(int which)
         {
-            var ptr = (byte*) _cposeSettings.Address.ToPointer();
+            var ptr = (byte*) _cPoseSettings.Address.ToPointer();
             return ptr[which];
         }
 
         private unsafe void WritePose(int which, byte pose)
         {
-            var ptr = (byte*)_cposeSettings.Address.ToPointer();
+            var ptr = (byte*)_cPoseSettings.Address.ToPointer();
             ptr[which] = pose;
         }
-
-        public byte StandingPose
-            => GetPose(0);
-
-        public byte WeaponDrawnPose
-            => GetPose(1);
-
-        public byte SitPose
-            => GetPose(2);
-
-        public byte GroundSitPose
-            => GetPose(3);
-
-        public byte DozePose
-            => GetPose(4);
 
         public void SetPose(int which, byte toWhat)
         {
@@ -240,23 +255,6 @@ namespace AutoVisor.Managers
             }
         }
 
-
-        public void SetStandingPose(byte pose)
-            => SetPose(0, pose);
-
-        public void SetWeaponDrawnPose(byte pose)
-            => SetPose(1, pose);
-
-        public void SetSitPose(byte pose)
-            => SetPose(2, pose);
-
-        public void SetGroundSitPose(byte pose)
-            => SetPose(3, pose);
-
-        public void SetDozePose(byte pose)
-            => SetPose(4, pose);
-
-
         public void SetPoses(byte standing, byte weaponDrawn, byte sitting, byte groundSitting, byte dozing)
         {
             SetPose(0, standing);
@@ -275,11 +273,10 @@ namespace AutoVisor.Managers
             _defaultPoses[4] = GetPose(4);
         }
 
-        public CPoseManager(DalamudPluginInterface pi, CommandManager commandManager)
+        public CPoseManager(CommandManager commandManager)
         {
-            _pi             = pi;
             _commandManager = commandManager;
-            _cposeSettings  = new CPoseSettings(_pi.TargetModuleScanner);
+            _cPoseSettings  = new CPoseSettings(Dalamud.SigScanner);
 
             ResetDefaultPoses();
         }

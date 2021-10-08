@@ -137,5 +137,18 @@ namespace AutoVisor
         public bool                             Enabled    { get; set; } = true;
         public int                              WaitFrames { get; set; } = 30;
         public Dictionary<string, PlayerConfig> States     { get; set; } = new();
+
+        public static AutoVisorConfiguration Load()
+        {
+            if (Dalamud.PluginInterface.GetPluginConfig() is AutoVisorConfiguration cfg)
+                return cfg;
+
+            cfg = new AutoVisorConfiguration();
+            cfg.Save();
+            return cfg;
+        }
+
+        public void Save()
+            => Dalamud.PluginInterface.SavePluginConfig(this);
     }
 }
