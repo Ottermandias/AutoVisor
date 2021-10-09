@@ -113,8 +113,8 @@ namespace AutoVisor.GUI
             ImGui.SetNextItemWidth(50);
             if (ImGui.InputInt("Wait Frames", ref tmp, 0, 0)
              && AutoVisor.Config.WaitFrames != tmp
-             && AutoVisor.Config.WaitFrames > 0
-             && AutoVisor.Config.WaitFrames < 3001)
+             && tmp >= AutoVisorConfiguration.WaitFramesMin
+             && tmp <= AutoVisorConfiguration.WaitFramesMax)
             {
                 AutoVisor.Config.WaitFrames = tmp;
                 Save();

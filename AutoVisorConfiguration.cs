@@ -74,7 +74,7 @@ namespace AutoVisor
              && WeaponDrawnPose != CPoseManager.UnchangedPose
              && WeaponDrawnPose >= CPoseManager.NumWeaponDrawnPoses)
             {
-                changes      = true;
+                changes         = true;
                 WeaponDrawnPose = CPoseManager.DefaultPose;
             }
 
@@ -82,7 +82,7 @@ namespace AutoVisor
              && SittingPose != CPoseManager.UnchangedPose
              && SittingPose >= CPoseManager.NumSitPoses)
             {
-                changes      = true;
+                changes     = true;
                 SittingPose = CPoseManager.DefaultPose;
             }
 
@@ -90,7 +90,7 @@ namespace AutoVisor
              && GroundSittingPose != CPoseManager.UnchangedPose
              && GroundSittingPose >= CPoseManager.NumGroundSitPoses)
             {
-                changes      = true;
+                changes           = true;
                 GroundSittingPose = CPoseManager.DefaultPose;
             }
 
@@ -98,7 +98,7 @@ namespace AutoVisor
              && DozingPose != CPoseManager.UnchangedPose
              && DozingPose >= CPoseManager.NumDozePoses)
             {
-                changes      = true;
+                changes    = true;
                 DozingPose = CPoseManager.DefaultPose;
             }
 
@@ -108,9 +108,9 @@ namespace AutoVisor
 
     public class PlayerConfig
     {
-        public const VisorChangeStates Mask = (VisorChangeStates) ((1 << 13) - 1); 
+        public const VisorChangeStates Mask = (VisorChangeStates) ((1 << 13) - 1);
 
-        public const VisorChangeStates WeaponMask = 
+        public const VisorChangeStates WeaponMask =
             VisorChangeStates.Normal
           | VisorChangeStates.Mounted
           | VisorChangeStates.Flying
@@ -133,10 +133,20 @@ namespace AutoVisor
     [Serializable]
     public class AutoVisorConfiguration : IPluginConfiguration
     {
-        public int                              Version    { get; set; } = 2;
-        public bool                             Enabled    { get; set; } = true;
-        public int                              WaitFrames { get; set; } = 30;
-        public Dictionary<string, PlayerConfig> States     { get; set; } = new();
+        public const int WaitFramesMin = 1;
+        public const int WaitFramesMax = 3000;
+        private      int _waitFrames   = 30;
+
+        public int  Version { get; set; } = 2;
+        public bool Enabled { get; set; } = true;
+
+        public int WaitFrames
+        {
+            get => _waitFrames;
+            set => _waitFrames = Math.Clamp(value, WaitFramesMin, WaitFramesMax);
+        }
+
+        public Dictionary<string, PlayerConfig> States { get; set; } = new();
 
         public static AutoVisorConfiguration Load()
         {
@@ -145,6 +155,7 @@ namespace AutoVisor
 
             cfg = new AutoVisorConfiguration();
             cfg.Save();
+
             return cfg;
         }
 
