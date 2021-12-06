@@ -41,5 +41,7 @@ namespace AutoVisor.Classes
         BLU     = 36,
         GNB     = 37,
         DNC     = 38,
+        RPR     = 39,
+        SGE     = 40,
     }
 }

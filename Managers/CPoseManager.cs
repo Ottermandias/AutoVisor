@@ -170,21 +170,14 @@ namespace AutoVisor.Managers
 
         private unsafe byte GetSeatingState()
         {
-            const int seatingStateOffset = 0x197D;
+            const int seatingStateOffset = 0x19D7;
             var       ptr                = (byte*)PlayerPointer.ToPointer();
             return *(ptr + seatingStateOffset);
         }
 
-        private unsafe ushort GetPersistentEmote()
-        {
-            const int persistentEmoteOffset = 0xE94;
-            var       ptr                   = (byte*) PlayerPointer.ToPointer();
-            return *(ushort*) (ptr + persistentEmoteOffset);
-        }
-
         private unsafe int GetCPoseActorState()
         {
-            const int cPoseOffset = 0xEA1;
+            const int cPoseOffset = 0xC11;
             var       ptr         = (byte*) PlayerPointer.ToPointer();
             return *(ptr + cPoseOffset);
         }

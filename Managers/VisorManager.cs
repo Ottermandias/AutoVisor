@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using AutoVisor.Classes;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Logging;
 
 namespace AutoVisor.Managers
@@ -13,11 +14,9 @@ namespace AutoVisor.Managers
         public const string EquipmentParameters = "chara/xls/equipmentparameter/equipmentparameter.eqp";
         public const string GimmickParameters   = "chara/xls/equipmentparameter/gimmickparameter.gmp";
 
-        public const  int    ActorJobOffset         = 0x01E2;
-        public const  int    ActorRaceOffset        = 0x1898;
-        public const  int    ActorHatOffset         = 0x1040;
-        public const  int    ActorFlagsOffset       = 0x106C;
-        public const  int    ActorWeaponDrawnOffset = 0x19A0;
+        public const  int    ActorHatOffset         = 0xDB0;
+        public const  int    ActorFlagsOffset       = 0xDF6;
+        public const  int    ActorWeaponDrawnOffset = 0x19DF;
         public const  byte   ActorFlagsHideWeapon   = 0b000010;
         public const  byte   ActorFlagsHideHat      = 0b000001;
         public const  byte   ActorFlagsVisor        = 0b010000;
@@ -183,9 +182,9 @@ namespace AutoVisor.Managers
             0x0000FFFF00FF0000,
         };
 
-        private unsafe void UpdateWeaponDrawn(IntPtr player)
+        private unsafe void UpdateWeaponDrawn(PlayerCharacter player)
         {
-            var weaponDrawn = *((byte*) player.ToPointer() + ActorWeaponDrawnOffset);
+            var weaponDrawn = *((byte*) player.Address + ActorWeaponDrawnOffset);
             if (weaponDrawn == _currentWeaponDrawn)
                 return;
 
@@ -202,7 +201,7 @@ namespace AutoVisor.Managers
             }
 
             var player = Player();
-            if (player == IntPtr.Zero)
+            if (player == null)
                 return;
 
             UpdateName(player);
@@ -365,15 +364,15 @@ namespace AutoVisor.Managers
             _waitTimer          = (AutoVisor.Config.WaitFrames + 1) / 2;
         }
 
-        private IntPtr Player()
+        private PlayerCharacter? Player()
         {
-            var player = Marshal.ReadIntPtr(_actorTablePtr);
-            _visorEnabled              = player != IntPtr.Zero;
-            CPoseManager.PlayerPointer = player;
+            var player = Dalamud.ClientState.LocalPlayer;
+            _visorEnabled              = player != null;
+            CPoseManager.PlayerPointer = player?.Address ?? IntPtr.Zero;
             return player;
         }
 
-        private void UpdatePoses(IntPtr player)
+        private void UpdatePoses(PlayerCharacter player)
         {
             if (!AutoVisor.Config.States.TryGetValue(_currentName, out var config))
                 return;
@@ -389,9 +388,9 @@ namespace AutoVisor.Managers
             CPoseManager.SetDozePose(settings.DozingPose);
         }
 
-        private void UpdateName(IntPtr player)
+        private void UpdateName(PlayerCharacter player)
         {
-            var name = Marshal.PtrToStringAnsi(player + 0x30, 30).TrimEnd('\0');
+            var name = player.Name.TextValue;
             if (name == _currentName)
                 return;
 
@@ -400,27 +399,27 @@ namespace AutoVisor.Managers
             _currentName = name;
         }
 
-        private void UpdateActor(IntPtr player)
+        private void UpdateActor(PlayerCharacter player)
         {
             _visorEnabled &= UpdateFlags(player);
             _visorEnabled &= UpdateHat(player);
         }
 
-        private void UpdateJob(IntPtr actor)
+        private void UpdateJob(PlayerCharacter actor)
         {
-            var job = (Job) Marshal.ReadByte(actor + ActorJobOffset);
+            var job = (Job)actor.ClassJob.Id;
             if (job == _currentJob)
                 return;
 
             ResetState();
-            _currentJob = (Job) Marshal.ReadByte(actor + ActorJobOffset);
+            _currentJob = (Job)actor.ClassJob.Id;
             UpdatePoses(actor);
             _waitTimer = AutoVisor.Config.WaitFrames;
         }
 
-        private bool UpdateRace(IntPtr actor)
+        private bool UpdateRace(PlayerCharacter actor)
         {
-            var race = (Race) Marshal.ReadByte(actor + ActorRaceOffset);
+            var race = (Race) actor.Customize[0];
             var ret  = race != _currentRace;
             _currentRace = race;
             return ret;
@@ -451,9 +450,9 @@ namespace AutoVisor.Managers
             return _hatIsUseable;
         }
 
-        private bool UpdateHat(IntPtr actor)
+        private unsafe bool UpdateHat(PlayerCharacter actor)
         {
-            var hat = (ushort) Marshal.ReadInt16(actor + ActorHatOffset);
+            var hat = *(ushort*) (actor.Address + ActorHatOffset);
             if (hat != _currentHatModelId)
             {
                 _currentHatModelId = hat;
@@ -470,9 +469,9 @@ namespace AutoVisor.Managers
             return _visorIsEnabled && _hatIsUseable;
         }
 
-        private bool UpdateFlags(IntPtr actor)
+        private unsafe bool UpdateFlags(PlayerCharacter actor)
         {
-            var flags = Marshal.ReadByte(actor + ActorFlagsOffset);
+            var flags = *(byte*) (actor.Address + ActorFlagsOffset);
             _weaponIsShown  = (flags & ActorFlagsHideWeapon) != ActorFlagsHideWeapon;
             _hatIsShown     = (flags & ActorFlagsHideHat) != ActorFlagsHideHat;
             _visorIsToggled = (flags & ActorFlagsVisor) == ActorFlagsVisor;
