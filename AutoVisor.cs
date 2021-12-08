@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using AutoVisor.Classes;
@@ -24,9 +25,9 @@ namespace AutoVisor
         private bool VerifySettingIntegrity()
         {
             var changes = false;
-            foreach (var player in Config!.States.Values)
+            foreach (var player in Config.States.Values)
             {
-                if (player.PerJob.Any(kvp => kvp.Key > Job.DNC))
+                if (player.PerJob.Any(kvp => !Enum.IsDefined(kvp.Key)))
                 {
                     player.PerJob = player.PerJob.Where(kvp => kvp.Key <= Job.DNC).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                     changes       = true;
