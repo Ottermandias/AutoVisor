@@ -416,7 +416,7 @@ public class VisorManager : IDisposable
         if (_gmpFile == null)
             _visorIsEnabled = true;
         else
-            _visorIsEnabled = (_gmpFile.GetEntry(_currentHatModelId) & Offsets.Meta.Flags.GimmickVisorEnabled) == Offsets.Meta.Flags.GimmickVisorAnimated;
+            _visorIsEnabled = (_gmpFile.GetEntry(_currentHatModelId) & Offsets.Meta.Flags.GimmickVisorEnabled) == Offsets.Meta.Flags.GimmickVisorEnabled;
 
         return _visorIsEnabled;
     }
