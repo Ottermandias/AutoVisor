@@ -42,7 +42,6 @@ public class VisorManager : IDisposable
     private readonly ulong[] _currentState = new ulong[NumStateLongs];
     private          byte    _currentWeaponDrawn;
 
-    private readonly IntPtr _actorTablePtr;
     private readonly IntPtr _conditionPtr;
     private          ushort _currentHatModelId;
     private          Job    _currentJob;
@@ -103,7 +102,6 @@ public class VisorManager : IDisposable
         _gmpFile        = gmp;
         CPoseManager    = new CPoseManager(_commandManager);
         _conditionPtr   = Dalamud.Conditions.Address;
-        _actorTablePtr  = Dalamud.Objects.Address;
     }
 
     public void Dispose()

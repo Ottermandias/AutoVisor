@@ -4,13 +4,13 @@ public static class Offsets
 {
     public static class Character
     {
-        public const int Hat                = 0x808;
-        public const int HatVisible         = 0x84E;
-        public const int VisorToggled       = 0x84F;
-        public const int WeaponDrawn        = 0x1AD6;
-        public const int WeaponHidden1      = 0x84F;
-        public const int SeatingState = 0x1ABD;
-        public const int CPose        = 0x631;
+        public const int Hat           = 0x818;
+        public const int HatVisible    = 0x85E;
+        public const int VisorToggled  = 0x85F;
+        public const int WeaponDrawn   = 0x1AEF;
+        public const int WeaponHidden1 = 0x85F;
+        public const int SeatingState  = 0x1AD5;
+        public const int CPose         = 0x631;
 
         public static class Flags
         {
