@@ -7,9 +7,9 @@ public static class Offsets
         public const int Hat           = 0x818;
         public const int HatVisible    = 0x85E;
         public const int VisorToggled  = 0x85F;
-        public const int WeaponDrawn   = 0x1AEF;
+        public const int WeaponDrawn   = 0x1B1B;
         public const int WeaponHidden1 = 0x85F;
-        public const int SeatingState  = 0x1AD5;
+        public const int SeatingState  = 0x1B01;
         public const int CPose         = 0x631;
 
         public static class Flags
