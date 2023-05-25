@@ -4,6 +4,7 @@ using AutoVisor.Classes;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Logging;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 
 namespace AutoVisor.Managers;
 
@@ -348,11 +349,11 @@ public class VisorManager : IDisposable
         _waitTimer          = (AutoVisor.Config.WaitFrames + 1) / 2;
     }
 
-    private PlayerCharacter? Player()
+    private unsafe PlayerCharacter? Player()
     {
         var player = Dalamud.ClientState.LocalPlayer;
         _visorEnabled              = player != null;
-        CPoseManager.PlayerPointer = player?.Address ?? IntPtr.Zero;
+        CPoseManager.PlayerPointer = (Character*) (player?.Address ?? IntPtr.Zero);
         return player;
     }
 
@@ -436,7 +437,7 @@ public class VisorManager : IDisposable
 
     private unsafe bool UpdateHat(PlayerCharacter actor)
     {
-        var hat = *(ushort*)(actor.Address + Offsets.Character.Hat);
+        var hat = ((Character*)actor.Address)->DrawData.Head.Id;
         if (hat != _currentHatModelId)
         {
             _currentHatModelId = hat;

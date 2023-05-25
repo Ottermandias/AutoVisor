@@ -1,13 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoVisor.SeFunctions;
 using Dalamud.Logging;
-using Dalamud.Plugin;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 
 namespace AutoVisor.Managers;
 
-public class CPoseManager
+public unsafe class CPoseManager
 {
     public const int NumStandingPoses    = 7;
     public const int NumWeaponDrawnPoses = 2;
@@ -165,28 +163,19 @@ public class CPoseManager
     public void SetDozePose(byte pose)
         => SetPose(4, pose);
 
-    public IntPtr PlayerPointer { get; set; } = IntPtr.Zero;
+    public Character* PlayerPointer { get; set; } = null;
     public bool   WeaponDrawn   { get; set; } = false;
 
-    private unsafe byte GetSeatingState()
-    {
-        var ptr = (byte*)PlayerPointer.ToPointer();
-        return *(ptr + Offsets.Character.SeatingState);
-    }
+    private int GetCPoseActorState()
+        => *((byte*)PlayerPointer + Offsets.Character.CPose);
 
-    private unsafe int GetCPoseActorState()
-    {
-        var ptr = (byte*)PlayerPointer.ToPointer();
-        return *(ptr + Offsets.Character.CPose);
-    }
-
-    private unsafe byte GetPose(int which)
+    private byte GetPose(int which)
     {
         var ptr = (byte*)_cPoseSettings.Address.ToPointer();
         return ptr[which];
     }
 
-    private unsafe void WritePose(int which, byte pose)
+    private void WritePose(int which, byte pose)
     {
         var ptr = (byte*)_cPoseSettings.Address.ToPointer();
         ptr[which] = pose;
@@ -207,10 +196,10 @@ public class CPoseManager
             return;
         }
 
-        if (PlayerPointer == IntPtr.Zero)
+        if (PlayerPointer == null)
             return;
 
-        var currentState = GetSeatingState();
+        var currentState = PlayerPointer->ModeParam;
         currentState = TranslateState(currentState, WeaponDrawn);
         var pose = GetPose(which);
         if (currentState == which)
