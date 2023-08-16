@@ -1,30 +1,23 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-using AutoVisor.SeFunctions;
-using Dalamud.Game;
 using Dalamud.Logging;
+using Dalamud.Utility.Signatures;
+using FFXIVClientStructs.FFXIV.Client.UI;
 
 namespace AutoVisor.Managers
 {
     public class CommandManager
     {
-        private readonly ProcessChatBox _processChatBox;
+        private delegate IntPtr ProcessChatBoxDelegate(IntPtr uiModule, IntPtr message, IntPtr unk1, byte unk2);
 
-        private readonly IntPtr _uiModulePtr;
+        [Signature("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9")]
+        private readonly ProcessChatBoxDelegate _processChatBox = null!;
 
-        public CommandManager(SeAddressBase baseUiObject, GetUiModule getUiModule, ProcessChatBox processChatBox)
-        {
-            _processChatBox = processChatBox;
-            _uiModulePtr = getUiModule.Invoke(Marshal.ReadIntPtr(baseUiObject.Address));
-        }
+        public CommandManager()
+            => SignatureHelper.Initialise(this);
 
-        public CommandManager(SigScanner sigScanner)
-            : this(new BaseUiObject(sigScanner), new GetUiModule(sigScanner),
-                new ProcessChatBox(sigScanner))
-        { }
-
-        public bool Execute(string message)
+        public unsafe bool Execute(string message)
         {
             // First try to process the command through Dalamud.
             if (Dalamud.Commands.ProcessCommand(message))
@@ -33,7 +26,8 @@ namespace AutoVisor.Managers
                 return true;
             }
 
-            if (_uiModulePtr == IntPtr.Zero)
+            var uiModulePtr = (nint) UIModule.Instance();
+            if (uiModulePtr == nint.Zero)
             {
                 PluginLog.Error("Can not execute \"{Message:l}\" because no uiModulePtr is available.", message);
                 return false;
@@ -43,7 +37,7 @@ namespace AutoVisor.Managers
             var (text, length) = PrepareString(message);
             var payload = PrepareContainer(text, length);
 
-            _processChatBox.Invoke(_uiModulePtr, payload, IntPtr.Zero, (byte)0);
+            _processChatBox.Invoke(uiModulePtr, payload, IntPtr.Zero, (byte)0);
 
             Marshal.FreeHGlobal(payload);
             Marshal.FreeHGlobal(text);

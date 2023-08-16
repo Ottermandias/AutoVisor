@@ -5,14 +5,13 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Logging;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 
 namespace AutoVisor.Managers;
 
 public class VisorManager : IDisposable
 {
-    public const string EquipmentParameters = "chara/xls/equipmentparameter/equipmentparameter.eqp";
-    public const string GimmickParameters   = "chara/xls/equipmentparameter/gimmickparameter.gmp";
-
     public static string VisorCommand      = "/visor";
     public static string HideHatCommand    = "/displayhead";
     public static string HideWeaponCommand = "/displayarms";
@@ -41,74 +40,33 @@ public class VisorManager : IDisposable
 
     private const    int     NumStateLongs = 12;
     private readonly ulong[] _currentState = new ulong[NumStateLongs];
-    private          byte    _currentWeaponDrawn;
+    private          bool    _currentWeaponDrawn;
 
     private readonly IntPtr _conditionPtr;
     private          ushort _currentHatModelId;
     private          Job    _currentJob;
-    private          Race   _currentRace;
     private          string _currentName = string.Empty;
     private          bool   _hatIsShown;
     private          bool   _weaponIsShown;
-    private          bool   _hatIsUseable;
-    private          bool   _visorIsEnabled;
     private          bool   _visorEnabled;
     private          bool?  _visorToggleEntered;
     private          int    _visorToggleTimer;
     private          int    _waitTimer;
 
     private bool _visorIsToggled;
-    // private bool   _visorIsAnimated;
-
 
     private readonly CommandManager _commandManager;
-    private readonly EqpFile?       _eqpFile;
-    private readonly EqpFile?       _gmpFile;
     public readonly  CPoseManager   CPoseManager;
 
-    private static EqpFile? ObtainEqpFile()
-    {
-        try
-        {
-            return new EqpFile(Dalamud.GameData.GetFile(EquipmentParameters) ?? throw new Exception("Not found."));
-        }
-        catch (Exception e)
-        {
-            PluginLog.Error($"Could not obtain EqpFile:\n{e}");
-            return null;
-        }
-    }
-
-    private static EqpFile? ObtainGmpFile()
-    {
-        try
-        {
-            return new EqpFile(Dalamud.GameData.GetFile(GimmickParameters) ?? throw new Exception("Not found."));
-        }
-        catch (Exception e)
-        {
-            PluginLog.Error($"Could not obtain GmpFile:\n{e}");
-            return null;
-        }
-    }
-
     public VisorManager(CommandManager commandManager)
-        : this(commandManager, ObtainEqpFile(), ObtainGmpFile())
-    { }
-
-    public VisorManager(CommandManager commandManager, EqpFile? eqp, EqpFile? gmp)
     {
         _commandManager = commandManager;
-        _eqpFile        = eqp;
-        _gmpFile        = gmp;
         CPoseManager    = new CPoseManager(_commandManager);
         _conditionPtr   = Dalamud.Conditions.Address;
     }
 
     public void Dispose()
-    {
-        Deactivate();
-    }
+        => Deactivate();
 
     public void Activate()
     {
@@ -168,12 +126,23 @@ public class VisorManager : IDisposable
 
     private unsafe void UpdateWeaponDrawn(PlayerCharacter player)
     {
-        var weaponDrawn = *((byte*)player.Address + Offsets.Character.WeaponDrawn);
-        if (weaponDrawn == _currentWeaponDrawn)
-            return;
+        var address     = (Character*)player.Address;
+        var weaponDrawn = address->IsWeaponDrawn;
+        if (weaponDrawn != _currentWeaponDrawn)
+        {
+            _currentWeaponDrawn      = weaponDrawn;
+            CPoseManager.WeaponDrawn = weaponDrawn;
+        }
 
-        _currentWeaponDrawn      = weaponDrawn;
-        CPoseManager.WeaponDrawn = (_currentWeaponDrawn & Offsets.Character.Flags.IsWeaponDrawn) != 0;
+        CPoseManager.Accessory = address->Ornament.OrnamentId != 0;
+        var draw = address->GameObject.DrawObject;
+        if (draw != null && draw->Object.GetObjectType() is ObjectType.CharacterBase)
+        {
+            var characterBase = (CharacterBase*)draw;
+            CPoseManager.Umbrella = characterBase->HasUmbrella;
+            if (CPoseManager.Umbrella)
+                CPoseManager.Accessory = false;
+        }
     }
 
     public unsafe void OnFrameworkUpdate(object framework)
@@ -250,7 +219,7 @@ public class VisorManager : IDisposable
 
     private void HandleState(VisorChangeGroup visor, Condition condition)
     {
-        var hatSet    = !_hatIsUseable || visor.HideHatSet == 0;
+        var hatSet    = visor.HideHatSet == 0;
         var visorSet  = hatSet && _visorEnabled && visor.VisorSet == 0;
         var weaponSet = visor.HideWeaponSet == 0;
 
@@ -288,9 +257,8 @@ public class VisorManager : IDisposable
 
             var doStuff = state switch
             {
-                VisorChangeStates.Drawn => (_currentWeaponDrawn & Offsets.Character.Flags.IsWeaponDrawn)
-                 == Offsets.Character.Flags.IsWeaponDrawn,
-                _ => condition[flag],
+                VisorChangeStates.Drawn => _currentWeaponDrawn,
+                _                       => condition[flag],
             };
             if (!doStuff)
                 continue;
@@ -322,8 +290,7 @@ public class VisorManager : IDisposable
         {
             PluginLog.Debug("Enabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
             _commandManager.Execute($"{HideHatCommand} {OnString}");
-            _hatIsShown   = true;
-            _visorEnabled = _visorIsEnabled;
+            _hatIsShown = true;
         }
         else
         {
@@ -353,7 +320,7 @@ public class VisorManager : IDisposable
     {
         var player = Dalamud.ClientState.LocalPlayer;
         _visorEnabled              = player != null;
-        CPoseManager.PlayerPointer = (Character*) (player?.Address ?? IntPtr.Zero);
+        CPoseManager.PlayerPointer = (Character*)(player?.Address ?? IntPtr.Zero);
         return player;
     }
 
@@ -366,11 +333,8 @@ public class VisorManager : IDisposable
             settings = config.PerJob[Job.Default];
 
         UpdateWeaponDrawn(player);
-        CPoseManager.SetStandingPose(settings.StandingPose);
-        CPoseManager.SetWeaponDrawnPose(settings.WeaponDrawnPose);
-        CPoseManager.SetSitPose(settings.SittingPose);
-        CPoseManager.SetGroundSitPose(settings.GroundSittingPose);
-        CPoseManager.SetDozePose(settings.DozingPose);
+        foreach (var pose in Enum.GetValues<PoseType>())
+            CPoseManager.SetPose(pose, settings.Pose(pose));
     }
 
     private void UpdateName(PlayerCharacter player)
@@ -402,66 +366,18 @@ public class VisorManager : IDisposable
         _waitTimer = AutoVisor.Config.WaitFrames;
     }
 
-    private bool UpdateRace(PlayerCharacter actor)
-    {
-        var race = (Race)actor.Customize[0];
-        var ret  = race != _currentRace;
-        _currentRace = race;
-        return ret;
-    }
-
-    private bool UpdateVisor()
-    {
-        if (_gmpFile == null)
-            _visorIsEnabled = true;
-        else
-            _visorIsEnabled = (_gmpFile.GetEntry(_currentHatModelId) & Offsets.Meta.Flags.GimmickVisorEnabled) == Offsets.Meta.Flags.GimmickVisorEnabled;
-
-        return _visorIsEnabled;
-    }
-
-    private bool UpdateUsable()
-    {
-        if (_eqpFile == null)
-            _hatIsUseable = true;
-        else
-            _hatIsUseable = _currentRace switch
-            {
-                Race.Hrothgar => (_eqpFile.GetEntry(_currentHatModelId) & Offsets.Meta.Flags.EqpHatHrothgar) == Offsets.Meta.Flags.EqpHatHrothgar,
-                Race.Viera    => (_eqpFile.GetEntry(_currentHatModelId) & Offsets.Meta.Flags.EqpHatViera) == Offsets.Meta.Flags.EqpHatViera,
-                _             => true,
-            };
-
-        return _hatIsUseable;
-    }
-
     private unsafe bool UpdateHat(PlayerCharacter actor)
     {
-        var hat = ((Character*)actor.Address)->DrawData.Head.Id;
-        if (hat != _currentHatModelId)
-        {
-            _currentHatModelId = hat;
-            if (!UpdateVisor())
-                return false;
-
-            UpdateRace(actor);
-            return UpdateUsable();
-        }
-
-        if (UpdateRace(actor))
-            return UpdateUsable();
-
-        return _visorIsEnabled && _hatIsUseable;
+        _currentHatModelId = ((Character*)actor.Address)->DrawData.Head.Id;
+        return _currentHatModelId != 0;
     }
 
     private unsafe bool UpdateFlags(PlayerCharacter actor)
     {
-        var flags = *(byte*)(actor.Address + Offsets.Character.HatVisible);
-        _hatIsShown     = (flags & Offsets.Character.Flags.IsHatHidden) != Offsets.Character.Flags.IsHatHidden;
-        flags           = *(byte*)(actor.Address + Offsets.Character.VisorToggled);
-        _visorIsToggled = (flags & Offsets.Character.Flags.IsVisorToggled) == Offsets.Character.Flags.IsVisorToggled;
-        flags           = *(byte*)(actor.Address + Offsets.Character.WeaponHidden1);
-        _weaponIsShown  = (flags & Offsets.Character.Flags.IsWeaponHidden1) != Offsets.Character.Flags.IsWeaponHidden1;
+        var address = (Character*)actor.Address;
+        _hatIsShown     = !address->DrawData.IsHatHidden;
+        _visorIsToggled = address->DrawData.IsVisorToggled;
+        _weaponIsShown  = !address->DrawData.IsWeaponHidden;
         return _hatIsShown;
     }
 }
