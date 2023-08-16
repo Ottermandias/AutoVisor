@@ -9,7 +9,7 @@ public unsafe class CPoseManager
 {
     public const int NumStandingPoses    = 7;
     public const int NumWeaponDrawnPoses = 2;
-    public const int NumSitPoses         = 3;
+    public const int NumSitPoses         = 5;
     public const int NumGroundSitPoses   = 4;
     public const int NumDozePoses        = 3;
 
