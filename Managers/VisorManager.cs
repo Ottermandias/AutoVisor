@@ -4,6 +4,7 @@ using AutoVisor.Classes;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Logging;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
@@ -217,7 +218,7 @@ public class VisorManager : IDisposable
         (ConditionFlag.NormalConditions, VisorChangeStates.Normal),
     };
 
-    private void HandleState(VisorChangeGroup visor, Condition condition)
+    private void HandleState(VisorChangeGroup visor, ICondition condition)
     {
         var hatSet    = visor.HideHatSet == 0;
         var visorSet  = hatSet && _visorEnabled && visor.VisorSet == 0;
@@ -274,7 +275,7 @@ public class VisorManager : IDisposable
         if (on == _weaponIsShown)
             return;
 
-        PluginLog.Debug("{What} Weapon Slot for {Name} on {Job} due to {Flag}.", on ? "Enabled" : "Disabled", _currentName, _currentJob,
+        Dalamud.Log.Debug("{What} Weapon Slot for {Name} on {Job} due to {Flag}.", on ? "Enabled" : "Disabled", _currentName, _currentJob,
             flag);
         _commandManager.Execute($"{HideWeaponCommand} {(on ? OnString : OffString)}");
         _weaponIsShown = on;
@@ -288,13 +289,13 @@ public class VisorManager : IDisposable
 
         if (on)
         {
-            PluginLog.Debug("Enabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
+            Dalamud.Log.Debug("Enabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
             _commandManager.Execute($"{HideHatCommand} {OnString}");
             _hatIsShown = true;
         }
         else
         {
-            PluginLog.Debug("Disabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
+            Dalamud.Log.Debug("Disabled Hat Slot for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
             _commandManager.Execute($"{HideHatCommand} {OffString}");
             _hatIsShown   = false;
             _visorEnabled = false;
@@ -308,7 +309,7 @@ public class VisorManager : IDisposable
         if (!_visorEnabled || on == _visorIsToggled || on == _visorToggleEntered)
             return;
 
-        PluginLog.Debug("Toggled Visor for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
+        Dalamud.Log.Debug("Toggled Visor for {Name} on {Job} due to {Flag}.", _currentName, _currentJob, flag);
         _commandManager.Execute(VisorCommand);
         _visorIsToggled     = on;
         _visorToggleEntered = on;

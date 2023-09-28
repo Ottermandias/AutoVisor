@@ -53,7 +53,7 @@ public unsafe class CPoseManager
     public bool       Accessory     { get; set; } = false;
 
     private int GetCPoseActorState()
-        => PlayerPointer->CPoseState;
+        => PlayerPointer->EmoteController.CPoseState;
 
     private static byte GetPose(PoseType which)
         => PlayerState.Instance()->CurrentPose(which);
@@ -72,7 +72,7 @@ public unsafe class CPoseManager
         }
         else if (toWhat >= NumPoses[(int)which])
         {
-            PluginLog.Error($"Higher pose requested than possible for {Name(which)}: {toWhat} / {Num(which)}.");
+            Dalamud.Log.Error($"Higher pose requested than possible for {Name(which)}: {toWhat} / {Num(which)}.");
             return;
         }
 
@@ -88,7 +88,7 @@ public unsafe class CPoseManager
                 if (pose != toWhat)
                 {
                     WritePose(which, toWhat);
-                    PluginLog.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat,
+                    Dalamud.Log.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat,
                         Name(which), Name(currentState));
                 }
             }
@@ -99,21 +99,21 @@ public unsafe class CPoseManager
                     var i = 0;
                     do
                     {
-                        PluginLog.Debug("Execute /cpose to get from {OldPose} to {NewPose} of {CurrentState:l}.", pose, toWhat,
+                        Dalamud.Log.Debug("Execute /cpose to get from {OldPose} to {NewPose} of {CurrentState:l}.", pose, toWhat,
                             Name(currentState));
                         _commandManager.Execute("/cpose");
                         Task.Delay(50);
                     } while (toWhat != GetCPoseActorState() && i++ < 8);
 
                     if (i > 8)
-                        PluginLog.Error("Could not change pose of {CurrentState:l}.", PoseNames[GetCPoseActorState()]);
+                        Dalamud.Log.Error("Could not change pose of {CurrentState:l}.", PoseNames[GetCPoseActorState()]);
                 });
             }
         }
         else if (pose != toWhat)
         {
             WritePose(which, toWhat);
-            PluginLog.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat,
+            Dalamud.Log.Debug("Overwrote {OldPose} with {NewPose} for {WhichPose:l}, currently in {CurrentState:l}.", pose, toWhat,
                 Name(which), Name(currentState));
         }
     }

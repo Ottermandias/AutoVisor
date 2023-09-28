@@ -15,21 +15,21 @@ namespace AutoVisor.Managers
         private readonly ProcessChatBoxDelegate _processChatBox = null!;
 
         public CommandManager()
-            => SignatureHelper.Initialise(this);
+            => Dalamud.Interop.InitializeFromAttributes(this);
 
         public unsafe bool Execute(string message)
         {
             // First try to process the command through Dalamud.
             if (Dalamud.Commands.ProcessCommand(message))
             {
-                PluginLog.Verbose("Executed Dalamud command \"{Message:l}\".", message);
+                Dalamud.Log.Verbose("Executed Dalamud command \"{Message:l}\".", message);
                 return true;
             }
 
             var uiModulePtr = (nint) UIModule.Instance();
             if (uiModulePtr == nint.Zero)
             {
-                PluginLog.Error("Can not execute \"{Message:l}\" because no uiModulePtr is available.", message);
+                Dalamud.Log.Error("Can not execute \"{Message:l}\" because no uiModulePtr is available.", message);
                 return false;
             }
 
