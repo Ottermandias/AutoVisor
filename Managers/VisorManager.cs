@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using AutoVisor.Classes;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Logging;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -135,7 +134,7 @@ public class VisorManager : IDisposable
             CPoseManager.WeaponDrawn = weaponDrawn;
         }
 
-        CPoseManager.Accessory = address->Ornament.OrnamentId != 0;
+        CPoseManager.Accessory = address->OrnamentData.OrnamentId != 0;
         var draw = address->GameObject.DrawObject;
         if (draw != null && draw->Object.GetObjectType() is ObjectType.CharacterBase)
         {
