@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Dalamud.Configuration;
 using AutoVisor.Classes;
 using AutoVisor.Managers;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
 namespace AutoVisor;
@@ -26,30 +27,30 @@ public struct VisorChangeGroup
     public VisorChangeGroup()
     {}
 
-    public byte Pose(PoseType type)
+    public byte Pose(EmoteController.PoseType type)
         => type switch
         {
-            PoseType.Idle        => StandingPose,
-            PoseType.WeaponDrawn => WeaponDrawnPose,
-            PoseType.Sit         => SittingPose,
-            PoseType.GroundSit   => GroundSittingPose,
-            PoseType.Doze        => DozingPose,
-            PoseType.Umbrella    => UmbrellaPose,
-            PoseType.Accessory   => AccessoryPose,
-            _                    => CPoseManager.UnchangedPose,
+            EmoteController.PoseType.Idle        => StandingPose,
+            EmoteController.PoseType.WeaponDrawn => WeaponDrawnPose,
+            EmoteController.PoseType.Sit         => SittingPose,
+            EmoteController.PoseType.GroundSit   => GroundSittingPose,
+            EmoteController.PoseType.Doze        => DozingPose,
+            EmoteController.PoseType.Umbrella    => UmbrellaPose,
+            EmoteController.PoseType.Accessory   => AccessoryPose,
+            _                                    => CPoseManager.UnchangedPose,
         };
 
-    public byte SetPose(PoseType type, byte value)
+    public byte SetPose(EmoteController.PoseType type, byte value)
         => type switch
         {
-            PoseType.Idle        => StandingPose = value,
-            PoseType.WeaponDrawn => WeaponDrawnPose = value,
-            PoseType.Sit         => SittingPose = value,
-            PoseType.GroundSit   => GroundSittingPose = value,
-            PoseType.Doze        => DozingPose = value,
-            PoseType.Umbrella    => UmbrellaPose = value,
-            PoseType.Accessory   => AccessoryPose = value,
-            _                    => value,
+            EmoteController.PoseType.Idle        => StandingPose = value,
+            EmoteController.PoseType.WeaponDrawn => WeaponDrawnPose = value,
+            EmoteController.PoseType.Sit         => SittingPose = value,
+            EmoteController.PoseType.GroundSit   => GroundSittingPose = value,
+            EmoteController.PoseType.Doze        => DozingPose = value,
+            EmoteController.PoseType.Umbrella    => UmbrellaPose = value,
+            EmoteController.PoseType.Accessory   => AccessoryPose = value,
+            _                                    => value,
         };
 
     public static VisorChangeGroup Empty = new()
@@ -100,7 +101,7 @@ public struct VisorChangeGroup
 
         if (StandingPose != CPoseManager.DefaultPose
          && StandingPose != CPoseManager.UnchangedPose
-         && StandingPose >= CPoseManager.Num(PoseType.Idle))
+         && StandingPose >= CPoseManager.Num(EmoteController.PoseType.Idle))
         {
             changes      = true;
             StandingPose = CPoseManager.DefaultPose;
@@ -108,7 +109,7 @@ public struct VisorChangeGroup
 
         if (WeaponDrawnPose != CPoseManager.DefaultPose
          && WeaponDrawnPose != CPoseManager.UnchangedPose
-         && WeaponDrawnPose >= CPoseManager.Num(PoseType.WeaponDrawn))
+         && WeaponDrawnPose >= CPoseManager.Num(EmoteController.PoseType.WeaponDrawn))
         {
             changes         = true;
             WeaponDrawnPose = CPoseManager.DefaultPose;
@@ -116,7 +117,7 @@ public struct VisorChangeGroup
 
         if (SittingPose != CPoseManager.DefaultPose
          && SittingPose != CPoseManager.UnchangedPose
-         && SittingPose >= CPoseManager.Num(PoseType.Sit))
+         && SittingPose >= CPoseManager.Num(EmoteController.PoseType.Sit))
         {
             changes     = true;
             SittingPose = CPoseManager.DefaultPose;
@@ -124,7 +125,7 @@ public struct VisorChangeGroup
 
         if (GroundSittingPose != CPoseManager.DefaultPose
          && GroundSittingPose != CPoseManager.UnchangedPose
-         && GroundSittingPose >= CPoseManager.Num(PoseType.GroundSit))
+         && GroundSittingPose >= CPoseManager.Num(EmoteController.PoseType.GroundSit))
         {
             changes           = true;
             GroundSittingPose = CPoseManager.DefaultPose;
@@ -132,7 +133,7 @@ public struct VisorChangeGroup
 
         if (DozingPose != CPoseManager.DefaultPose
          && DozingPose != CPoseManager.UnchangedPose
-         && DozingPose >= CPoseManager.Num(PoseType.Doze))
+         && DozingPose >= CPoseManager.Num(EmoteController.PoseType.Doze))
         {
             changes    = true;
             DozingPose = CPoseManager.DefaultPose;
@@ -140,7 +141,7 @@ public struct VisorChangeGroup
 
         if (UmbrellaPose != CPoseManager.DefaultPose
          && UmbrellaPose != CPoseManager.UnchangedPose
-         && UmbrellaPose >= CPoseManager.Num(PoseType.Umbrella))
+         && UmbrellaPose >= CPoseManager.Num(EmoteController.PoseType.Umbrella))
         {
             changes      = true;
             UmbrellaPose = CPoseManager.DefaultPose;
@@ -148,7 +149,7 @@ public struct VisorChangeGroup
 
         if (AccessoryPose != CPoseManager.DefaultPose
          && AccessoryPose != CPoseManager.UnchangedPose
-         && AccessoryPose >= CPoseManager.Num(PoseType.Accessory))
+         && AccessoryPose >= CPoseManager.Num(EmoteController.PoseType.Accessory))
         {
             changes       = true;
             AccessoryPose = CPoseManager.DefaultPose;

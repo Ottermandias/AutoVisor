@@ -6,7 +6,7 @@ using AutoVisor.GUI;
 using AutoVisor.Managers;
 using Dalamud.Game.Command;
 using Dalamud.Plugin;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using CommandManager = AutoVisor.Managers.CommandManager;
 
 namespace AutoVisor;
@@ -66,7 +66,7 @@ public class AutoVisor : IDalamudPlugin
 
     private const string PPoseHelp = "Use with [Stand, Weapon, Sit, GroundSit, Doze] [#] to set specific pose.";
 
-    public AutoVisor(DalamudPluginInterface pluginInterface)
+    public AutoVisor(IDalamudPluginInterface pluginInterface)
     {
         Dalamud.Initialize(pluginInterface);
         Version         = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
@@ -93,10 +93,14 @@ public class AutoVisor : IDalamudPlugin
 
         Dalamud.PluginInterface.UiBuilder.Draw         += _ui.Draw;
         Dalamud.PluginInterface.UiBuilder.OpenConfigUi += OnConfigCommandHandler;
+        Dalamud.PluginInterface.UiBuilder.OpenMainUi   += OnConfigCommandHandler;
     }
 
     public void Dispose()
     {
+        Dalamud.PluginInterface.UiBuilder.Draw         -= _ui.Draw;
+        Dalamud.PluginInterface.UiBuilder.OpenConfigUi -= OnConfigCommandHandler;
+        Dalamud.PluginInterface.UiBuilder.OpenMainUi   -= OnConfigCommandHandler;
         VisorManager.Dispose();
         Dalamud.Commands.RemoveHandler("/autovisor");
         Dalamud.Commands.RemoveHandler("/ppose");
@@ -128,38 +132,38 @@ public class AutoVisor : IDalamudPlugin
             return;
         }
 
-        PoseType whichPoseType = 0;
+        EmoteController.PoseType whichPoseType = 0;
         switch (args[0].ToLowerInvariant())
         {
             case "stand":
-                whichPoseType = PoseType.Idle;
+                whichPoseType = EmoteController.PoseType.Idle;
                 break;
             case "weapon":
-                whichPoseType = PoseType.WeaponDrawn;
+                whichPoseType = EmoteController.PoseType.WeaponDrawn;
                 break;
             case "sit":
-                whichPoseType = PoseType.Sit;
+                whichPoseType = EmoteController.PoseType.Sit;
                 break;
             case "groundsit":
-                whichPoseType = PoseType.GroundSit;
+                whichPoseType = EmoteController.PoseType.GroundSit;
                 break;
             case "doze":
-                whichPoseType = PoseType.Doze;
+                whichPoseType = EmoteController.PoseType.Doze;
                 break;
             case "umbrella":
-                whichPoseType = PoseType.Umbrella;
+                whichPoseType = EmoteController.PoseType.Umbrella;
                 break;
             case "accessory":
-                whichPoseType = PoseType.Accessory;
+                whichPoseType = EmoteController.PoseType.Accessory;
                 break;
             default:
-                if (!int.TryParse(args[0], out var whichPoseTypeInt) || !Enum.IsDefined((PoseType)whichPoseTypeInt))
+                if (!int.TryParse(args[0], out var whichPoseTypeInt) || !Enum.IsDefined((EmoteController.PoseType)whichPoseTypeInt))
                 {
                     Dalamud.Chat.Print(PPoseHelp);
                     return;
                 }
 
-                whichPoseType = (PoseType)whichPoseTypeInt;
+                whichPoseType = (EmoteController.PoseType)whichPoseTypeInt;
 
                 break;
         }

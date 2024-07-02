@@ -5,6 +5,7 @@ using System.Numerics;
 using AutoVisor.Classes;
 using AutoVisor.Gui;
 using AutoVisor.Managers;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
 
@@ -164,7 +165,7 @@ public class AutoVisorUi
 
     public void DrawPoseTableContent(PlayerConfig settings, Job job, VisorChangeGroup jobSettings)
     {
-        foreach (var pose in Enum.GetValues<PoseType>())
+        foreach (var pose in Enum.GetValues<EmoteController.PoseType>())
         {
             ImGui.TableNextColumn();
             int tmp = jobSettings.Pose(pose);

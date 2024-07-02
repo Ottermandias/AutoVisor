@@ -2,40 +2,41 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
 namespace AutoVisor.Managers;
 
 public unsafe class CPoseManager
 {
-    private static readonly int[] NumPoses = Enum.GetValues<PoseType>().Select(p => PlayerState.AvailablePoses(p) + 1).ToArray();
+    private static readonly int[] NumPoses = Enum.GetValues<EmoteController.PoseType>().Select(p => EmoteController.GetAvailablePoses(p) + 1).ToArray();
 
-    public static readonly string[] PoseNames = Enum.GetValues<PoseType>().Select(p => p switch
+    public static readonly string[] PoseNames = Enum.GetValues<EmoteController.PoseType>().Select(p => p switch
     {
-        PoseType.Idle        => "Standing Pose",
-        PoseType.WeaponDrawn => "Weapon Drawn Pose",
-        PoseType.Sit         => "Sitting Pose",
-        PoseType.GroundSit   => "Sitting on Ground Pose",
-        PoseType.Doze        => "Dozing Pose",
-        PoseType.Umbrella    => "Umbrella Pose",
-        PoseType.Accessory   => "Accessory Pose",
-        _                    => $"{p} Pose",
+        EmoteController.PoseType.Idle        => "Standing Pose",
+        EmoteController.PoseType.WeaponDrawn => "Weapon Drawn Pose",
+        EmoteController.PoseType.Sit         => "Sitting Pose",
+        EmoteController.PoseType.GroundSit   => "Sitting on Ground Pose",
+        EmoteController.PoseType.Doze        => "Dozing Pose",
+        EmoteController.PoseType.Umbrella    => "Umbrella Pose",
+        EmoteController.PoseType.Accessory   => "Accessory Pose",
+        _                                    => $"{p} Pose",
     }).ToArray();
 
-    public static int Num(PoseType type)
+    public static int Num(EmoteController.PoseType type)
         => NumPoses[(int)type];
 
-    public static string Name(PoseType type)
+    public static string Name(EmoteController.PoseType type)
         => PoseNames[(int)type];
 
-    private PoseType TranslateState(byte state)
+    private EmoteController.PoseType TranslateState(byte state)
     {
         return state switch
         {
-            1 => PoseType.GroundSit,
-            2 => PoseType.Sit,
-            3 => PoseType.Doze,
-            _ => Umbrella ? PoseType.Umbrella : WeaponDrawn ? PoseType.WeaponDrawn : Accessory ? PoseType.Accessory : PoseType.Idle,
+            1 => EmoteController.PoseType.GroundSit,
+            2 => EmoteController.PoseType.Sit,
+            3 => EmoteController.PoseType.Doze,
+            _ => Umbrella ? EmoteController.PoseType.Umbrella : WeaponDrawn ? EmoteController.PoseType.WeaponDrawn : Accessory ? EmoteController.PoseType.Accessory : EmoteController.PoseType.Idle,
         };
     }
 
@@ -54,13 +55,13 @@ public unsafe class CPoseManager
     private int GetCPoseActorState()
         => PlayerPointer->EmoteController.CPoseState;
 
-    private static byte GetPose(PoseType which)
+    private static byte GetPose(EmoteController.PoseType which)
         => PlayerState.Instance()->CurrentPose(which);
 
-    private static void WritePose(PoseType which, byte pose)
+    private static void WritePose(EmoteController.PoseType which, byte pose)
         => PlayerState.Instance()->SelectedPoses[(int)which] = pose;
 
-    public void SetPose(PoseType which, byte toWhat)
+    public void SetPose(EmoteController.PoseType which, byte toWhat)
     {
         if (toWhat == UnchangedPose)
             return;
@@ -119,7 +120,7 @@ public unsafe class CPoseManager
 
     public void ResetDefaultPoses()
     {
-        foreach (var pose in Enum.GetValues<PoseType>())
+        foreach (var pose in Enum.GetValues<EmoteController.PoseType>())
             _defaultPoses[(int)pose] = GetPose(pose);
     }
 

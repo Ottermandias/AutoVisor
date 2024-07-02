@@ -5,6 +5,7 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 
@@ -124,7 +125,7 @@ public class VisorManager : IDisposable
         0x0000FFFF00FF0000,
     };
 
-    private unsafe void UpdateWeaponDrawn(PlayerCharacter player)
+    private unsafe void UpdateWeaponDrawn(IPlayerCharacter player)
     {
         var address     = (Character*)player.Address;
         var weaponDrawn = address->IsWeaponDrawn;
@@ -316,7 +317,7 @@ public class VisorManager : IDisposable
         _waitTimer          = (AutoVisor.Config.WaitFrames + 1) / 2;
     }
 
-    private unsafe PlayerCharacter? Player()
+    private unsafe IPlayerCharacter? Player()
     {
         var player = Dalamud.ClientState.LocalPlayer;
         _visorEnabled              = player != null;
@@ -324,7 +325,7 @@ public class VisorManager : IDisposable
         return player;
     }
 
-    private void UpdatePoses(PlayerCharacter player)
+    private void UpdatePoses(IPlayerCharacter player)
     {
         if (!AutoVisor.Config.States.TryGetValue(_currentName, out var config))
             return;
@@ -333,11 +334,11 @@ public class VisorManager : IDisposable
             settings = config.PerJob[Job.Default];
 
         UpdateWeaponDrawn(player);
-        foreach (var pose in Enum.GetValues<PoseType>())
+        foreach (var pose in Enum.GetValues<EmoteController.PoseType>())
             CPoseManager.SetPose(pose, settings.Pose(pose));
     }
 
-    private void UpdateName(PlayerCharacter player)
+    private void UpdateName(IPlayerCharacter player)
     {
         var name = player.Name.TextValue;
         if (name == _currentName)
@@ -348,13 +349,13 @@ public class VisorManager : IDisposable
         _currentName = name;
     }
 
-    private void UpdateActor(PlayerCharacter player)
+    private void UpdateActor(IPlayerCharacter player)
     {
         _visorEnabled &= UpdateFlags(player);
         _visorEnabled &= UpdateHat(player);
     }
 
-    private void UpdateJob(PlayerCharacter actor)
+    private void UpdateJob(IPlayerCharacter actor)
     {
         var job = (Job)actor.ClassJob.Id;
         if (job == _currentJob)
@@ -366,13 +367,13 @@ public class VisorManager : IDisposable
         _waitTimer = AutoVisor.Config.WaitFrames;
     }
 
-    private unsafe bool UpdateHat(PlayerCharacter actor)
+    private unsafe bool UpdateHat(IPlayerCharacter actor)
     {
-        _currentHatModelId = ((Character*)actor.Address)->DrawData.Head.Id;
+        _currentHatModelId = ((Character*)actor.Address)->DrawData.Equipment(DrawDataContainer.EquipmentSlot.Head).Id;
         return _currentHatModelId != 0;
     }
 
-    private unsafe bool UpdateFlags(PlayerCharacter actor)
+    private unsafe bool UpdateFlags(IPlayerCharacter actor)
     {
         var address = (Character*)actor.Address;
         _hatIsShown     = !address->DrawData.IsHatHidden;
