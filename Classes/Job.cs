@@ -43,4 +43,7 @@ public enum Job : byte
     DNC     = 38,
     RPR     = 39,
     SGE     = 40,
+    VPR     = 41,
+    PCT     = 42,
+    BST     = 43, // TODO
 }
