@@ -357,12 +357,12 @@ public class VisorManager : IDisposable
 
     private void UpdateJob(IPlayerCharacter actor)
     {
-        var job = (Job)actor.ClassJob.Id;
+        var job = (Job)actor.ClassJob.RowId;
         if (job == _currentJob)
             return;
 
         ResetState();
-        _currentJob = (Job)actor.ClassJob.Id;
+        _currentJob = (Job)actor.ClassJob.RowId;
         UpdatePoses(actor);
         _waitTimer = AutoVisor.Config.WaitFrames;
     }
