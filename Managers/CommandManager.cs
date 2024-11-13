@@ -10,7 +10,7 @@ public class CommandManager
 {
     private delegate IntPtr ProcessChatBoxDelegate(IntPtr uiModule, IntPtr message, IntPtr unk1, byte unk2);
 
-    [Signature("48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9")]
+    [Signature("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 48 8B F2 48 8B F9 45 84 C9")]
     private readonly ProcessChatBoxDelegate _processChatBox = null!;
 
     public CommandManager()
