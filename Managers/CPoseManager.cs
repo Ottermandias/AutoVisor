@@ -102,7 +102,7 @@ public unsafe class CPoseManager
                         Dalamud.Log.Debug("Execute /cpose to get from {OldPose} to {NewPose} of {CurrentState:l}.", pose, toWhat,
                             Name(currentState));
                         _commandManager.Execute("/cpose");
-                        Task.Delay(50);
+                        Task.Delay(50).Wait();
                     } while (toWhat != GetCPoseActorState() && i++ < 8);
 
                     if (i > 8)
