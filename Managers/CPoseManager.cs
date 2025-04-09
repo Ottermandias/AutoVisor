@@ -9,7 +9,8 @@ namespace AutoVisor.Managers;
 
 public unsafe class CPoseManager
 {
-    private static readonly int[] NumPoses = Enum.GetValues<EmoteController.PoseType>().Select(p => EmoteController.GetAvailablePoses(p) + 1).ToArray();
+    private static readonly int[] NumPoses = Enum.GetValues<EmoteController.PoseType>().Select(p => EmoteController.GetAvailablePoses(p) + 1)
+        .ToArray();
 
     public static readonly string[] PoseNames = Enum.GetValues<EmoteController.PoseType>().Select(p => p switch
     {
@@ -36,7 +37,9 @@ public unsafe class CPoseManager
             1 => EmoteController.PoseType.GroundSit,
             2 => EmoteController.PoseType.Sit,
             3 => EmoteController.PoseType.Doze,
-            _ => Umbrella ? EmoteController.PoseType.Umbrella : WeaponDrawn ? EmoteController.PoseType.WeaponDrawn : Accessory ? EmoteController.PoseType.Accessory : EmoteController.PoseType.Idle,
+            _ => Umbrella   ? EmoteController.PoseType.Umbrella :
+                WeaponDrawn ? EmoteController.PoseType.WeaponDrawn :
+                Accessory   ? EmoteController.PoseType.Accessory : EmoteController.PoseType.Idle,
         };
     }
 
@@ -77,7 +80,13 @@ public unsafe class CPoseManager
         }
 
         if (PlayerPointer == null)
+        {
+            PlayerPointer = (Character*)(Dalamud.ClientState.LocalPlayer?.Address ?? null);
+            if (PlayerPointer == null)
+                return;
+
             return;
+        }
 
         var currentState = TranslateState(PlayerPointer->ModeParam);
         var pose         = GetPose(which);
