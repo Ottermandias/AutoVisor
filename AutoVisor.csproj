@@ -1,8 +1,8 @@
-﻿<Project Sdk="Dalamud.NET.Sdk/12.0.2">
+﻿<Project Sdk="Dalamud.NET.Sdk/13.0.0">
   <PropertyGroup>
     <RootNamespace>AutoVisor</RootNamespace>
     <AssemblyName>AutoVisor</AssemblyName>
-    <Version>1.4.0.0</Version>
+    <Version>1.4.1.0</Version>
     <Product>AutoVisor</Product>
     <Copyright>Copyright © 2025</Copyright>
     <WarningLevel>4</WarningLevel>
@@ -11,7 +11,7 @@
 
   <PropertyGroup>
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
-    <Version>1.4.0.0</Version>
+    <Version>1.4.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

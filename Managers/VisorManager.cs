@@ -208,7 +208,7 @@ public class VisorManager : IDisposable
         (ConditionFlag.Crafting, VisorChangeStates.Crafting),
         (ConditionFlag.InFlight, VisorChangeStates.Flying),
         (ConditionFlag.Diving, VisorChangeStates.Diving),
-        (ConditionFlag.UsingParasol, VisorChangeStates.Fashion),
+        (ConditionFlag.UsingFashionAccessory, VisorChangeStates.Fashion),
         (ConditionFlag.Mounted, VisorChangeStates.Mounted),
         (ConditionFlag.Swimming, VisorChangeStates.Swimming),
         (ConditionFlag.Casting, VisorChangeStates.Casting),

@@ -81,7 +81,7 @@ public unsafe class CPoseManager
 
         if (PlayerPointer == null)
         {
-            PlayerPointer = (Character*)(Dalamud.ClientState.LocalPlayer?.Address ?? null);
+            PlayerPointer = (Character*)(Dalamud.ClientState.LocalPlayer?.Address ?? nint.Zero);
             if (PlayerPointer == null)
                 return;
 
