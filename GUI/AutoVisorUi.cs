@@ -408,7 +408,8 @@ public class AutoVisorUi
           + "\t6. In Combat\n"
           + "\t7. Weapon Drawn\n"
           + "\t8. In Duty\n"
-          + "\t9. Normal.");
+          + "\t9. Normal.\n"
+          + "\t10. In Sanctuary\n");
     }
 
     private void DrawPlayerAdd()

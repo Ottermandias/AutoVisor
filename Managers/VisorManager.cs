@@ -35,6 +35,7 @@ public class VisorManager : IDisposable
         { VisorChangeStates.Casting, false },
         { VisorChangeStates.Duty, true },
         { VisorChangeStates.Drawn, false },
+        {VisorChangeStates.Sanctuary,false},
     };
 
     public bool IsActive { get; private set; }
@@ -215,6 +216,7 @@ public class VisorManager : IDisposable
         (ConditionFlag.InCombat, VisorChangeStates.Combat),
         (ConditionFlag.None, VisorChangeStates.Drawn),
         (ConditionFlag.BoundByDuty, VisorChangeStates.Duty),
+        (ConditionFlag.NormalConditions, VisorChangeStates.Sanctuary),
         (ConditionFlag.NormalConditions, VisorChangeStates.Normal),
     };
 
@@ -258,8 +260,9 @@ public class VisorManager : IDisposable
 
             var doStuff = state switch
             {
-                VisorChangeStates.Drawn => _currentWeaponDrawn,
-                _                       => condition[flag],
+                VisorChangeStates.Drawn     => _currentWeaponDrawn,
+                VisorChangeStates.Sanctuary => sanctuaryState.IsInSanctuary(),
+                _                           => condition[flag],
             };
             if (!doStuff)
                 continue;

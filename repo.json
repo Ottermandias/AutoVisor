@@ -1,7 +1,7 @@
 ﻿[
   {
-    "Author": "Ottermandias",
-    "Name": "AutoVisor",
+    "Author": ["Ottermandias","UntitledGoose"],
+    "Name": "AutoVisorEdit",
     "Punchline": "Change Visor and Stance based on State and Job.",
     "Description": "Automatically change visor, headslot hiding, and weapon hiding status for different player states, as well as default CPose-stances per job.",
     "Tags": [ "Visor", "Headslot", "Hat", "CPose", "Stance", "State", "Glasses" ],

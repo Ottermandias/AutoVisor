@@ -170,7 +170,8 @@ public class PlayerConfig
       | VisorChangeStates.Swimming
       | VisorChangeStates.Diving
       | VisorChangeStates.Combat
-      | VisorChangeStates.Duty;
+      | VisorChangeStates.Duty
+      | VisorChangeStates.Sanctuary;
 
     public Dictionary<Job, VisorChangeGroup> PerJob { get; internal set; } = new()
     {
