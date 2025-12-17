@@ -319,7 +319,7 @@ public class VisorManager : IDisposable
 
     private unsafe IPlayerCharacter? Player()
     {
-        var player = Dalamud.ClientState.LocalPlayer;
+        var player = Dalamud.Objects.LocalPlayer;
         _visorEnabled              = player != null;
         CPoseManager.PlayerPointer = (Character*)(player?.Address ?? IntPtr.Zero);
         return player;

@@ -58,7 +58,7 @@ public class AutoVisorUi
 
     private bool AddPlayer(PlayerConfig config)
     {
-        var name = Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? "";
+        var name = Dalamud.PlayerState.IsLoaded ? Dalamud.PlayerState.CharacterName : string.Empty;
         if (name.Length == 0 || AutoVisor.Config.States.ContainsKey(name))
             return false;
 
@@ -348,7 +348,7 @@ public class AutoVisorUi
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip($"Delete all settings for the character {name}.");
 
-        if (name != (Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? ""))
+        if (name != (Dalamud.PlayerState.IsLoaded ? Dalamud.PlayerState.CharacterName : string.Empty))
         {
             ImGui.SameLine();
             if (ImGui.Button($"Duplicate##{name}"))
@@ -413,7 +413,7 @@ public class AutoVisorUi
 
     private void DrawPlayerAdd()
     {
-        var name = Dalamud.ClientState.LocalPlayer?.Name.ToString() ?? "";
+        var name = Dalamud.PlayerState.IsLoaded ? Dalamud.PlayerState.CharacterName : string.Empty;
         if (name.Length == 0 || AutoVisor.Config.States.ContainsKey(name))
             return;
 
